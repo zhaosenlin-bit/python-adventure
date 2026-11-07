@@ -275,7 +275,7 @@ export async function initPyodide(): Promise<boolean> {
         debugLog('[CodeExecutor] ⚠️ 本地Pyodide加载失败，尝试CDN...');
         // 本地失败，尝试CDN
         const cdnScript = document.createElement('script');
-        cdnScript.src = 'https://cdn.jsdelivr.net/pyodide/v0.24.1/full/pyodide.js';
+        cdnScript.src = 'https://cdn.jsdelivr.net/pyodide/v0.29.0/full/pyodide.js';
         cdnScript.async = true;
         cdnScript.onload = () => {
           debugLog('[CodeExecutor] ✅ Pyodide脚本从CDN加载成功');
@@ -297,7 +297,7 @@ export async function initPyodide(): Promise<boolean> {
     } catch (localErr) {
       debugLog('[CodeExecutor] ⚠️ 本地初始化失败，尝试CDN...', localErr);
       (window as any).pyodide = await (window as any).loadPyodide({
-        indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.24.1/full/'
+        indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.29.0/full/'
       });
       debugLog('[CodeExecutor] ✅ Pyodide从CDN初始化成功！');
     }

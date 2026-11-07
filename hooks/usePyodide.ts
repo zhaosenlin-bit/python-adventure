@@ -30,7 +30,7 @@ async function getGlobalPyodide(): Promise<any> {
                     script.onload = () => resolve();
                     script.onerror = () => {
                         const cdnScript = document.createElement("script");
-                        cdnScript.src = "https://cdn.jsdelivr.net/pyodide/v0.24.1/full/pyodide.js";
+                        cdnScript.src = "https://cdn.jsdelivr.net/pyodide/v0.29.0/full/pyodide.js";
                         cdnScript.onload = () => resolve();
                         cdnScript.onerror = reject;
                         document.head.appendChild(cdnScript);
@@ -46,7 +46,7 @@ async function getGlobalPyodide(): Promise<any> {
                 });
             } catch {
                 pyodide = await window.loadPyodide({
-                    indexURL: "https://cdn.jsdelivr.net/pyodide/v0.24.1/full/",
+                    indexURL: "https://cdn.jsdelivr.net/pyodide/v0.29.0/full/",
                 });
             }
 

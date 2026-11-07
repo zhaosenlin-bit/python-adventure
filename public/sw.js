@@ -1,11 +1,14 @@
 // Service Worker for caching Pyodide (Production Silent Mode)
-const CACHE_NAME = 'pyodide-cache-v1';
+// 每次替换 public/pyodide 下的运行时文件时，必须把 CACHE_NAME 的版本号 +1，
+// 否则老用户浏览器里缓存的 wasm / lock 文件会和新的 loader 配对，出现
+// "Lock file ABI version doesn't match Pyodide ABI version"。
+const CACHE_NAME = 'pyodide-cache-v2';
 const PYODIDE_FILES = [
   '/pyodide/pyodide.js',
   '/pyodide/pyodide.asm.js',
   '/pyodide/pyodide.asm.wasm',
-  '/pyodide/pyodide_py.tar',
-  '/pyodide/packages.json'
+  '/pyodide/python_stdlib.zip',
+  '/pyodide/pyodide-lock.json'
 ];
 
 self.addEventListener('install', (event) => {
@@ -25,7 +28,12 @@ self.addEventListener('install', (event) => {
 });
 
 self.addEventListener('activate', (event) => {
-  event.waitUntil(self.clients.claim());
+  // 清理旧版本缓存，避免新旧运行时文件混用
+  event.waitUntil(
+    caches.keys().then((keys) => Promise.all(
+      keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key))
+    )).then(() => self.clients.claim())
+  );
 });
 
 self.addEventListener('fetch', (event) => {

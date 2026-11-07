@@ -108,6 +108,18 @@ backend/_archive_*/
 
 # Backend virtual environment
 backend/venv/
+backend/.venv/
+
+# Local dev server logs
+
+# 桌面版 exe 打包产物
+/build/
+/dist/
+/out/
+backend-dev.log
+backend-dev.err.log
+frontend-dev.log
+frontend-dev.err.log
 backend/__pycache__/
 backend/**/__pycache__/
 backend/*.pyc
@@ -115,6 +127,7 @@ backend/*.pyc
 
 # Deployment packages
 *.zip
+!public/pyodide/python_stdlib.zip
 /deploy/frontend-dist/
 /deploy/backend-dist/
 release/server-update-*/
