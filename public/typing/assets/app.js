@@ -52,6 +52,30 @@
   };
 
   const API_ROOT = "/api/typing";
+
+  // 站内自带的 3D 打字闯关（three.js 网页版），不走 daziya 镜像目录
+  const LOCAL_GAMES = [
+    {
+      id: "typing-3d",
+      title: "3D 打字闯关",
+      tags: ["闯关", "中文", "3D"],
+      mode: "3d",
+      page_url: "/typing-3d",
+      image: "data/assets/daziya.com/game-typing-3d.png",
+      badge: "3D",
+      color: "sky",
+      description: "在 3D 石室里找发光面板、敲对题目、开门进入下一关。",
+    },
+  ];
+
+  function withLocalGames(catalog) {
+    const games = Array.isArray(catalog.games) ? catalog.games.slice() : [];
+    for (const game of LOCAL_GAMES) {
+      if (!games.some((item) => item.id === game.id)) games.unshift(game);
+    }
+    catalog.games = games;
+    return catalog;
+  }
   const ALLOW_EXTERNAL_WORD_AUDIO_FALLBACK = false;
   const BACKGROUND_SYNC_BASE_DELAY_MS = 5000;
   const BACKGROUND_SYNC_JITTER_MS = 25000;
@@ -378,7 +402,7 @@
         fetchStaticJson("./data/catalog.json"),
         loadAssetMap(),
       ]);
-      state.catalog = catalog;
+      state.catalog = withLocalGames(catalog);
       state.assetMap = assetMap;
       queueBackgroundSync();
     } catch (error) {

@@ -19,7 +19,7 @@ import { Level } from "@/lib/levels";
 import { getLearningChapter, getLearningCopy, type LearningSubjectId } from "@/lib/learningHub";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { Trophy, LogOut, User, Volume2, VolumeX, Languages, Globe2, BrainCircuit, ExternalLink, Keyboard, Gamepad2, Menu, X } from "lucide-react";
+import { Trophy, LogOut, User, Volume2, VolumeX, Languages, Globe2, BrainCircuit, ExternalLink, Keyboard, Gamepad2, Mountain, Menu, X } from "lucide-react";
 import Footer from "@/components/Footer";
 import CoinBalance from "@/components/ui/CoinBalance";
 import CoinHistory from "@/components/ui/CoinHistory";
@@ -253,6 +253,11 @@ export default function Home() {
         window.location.href = target.toString();
     };
 
+    // 3D 打字闯关是网页版（three.js），站内直接打开就能玩。
+    const handleOpen3DTyping = () => {
+        router.push('/typing-3d');
+    };
+
     const topQuickLinks = [
         {
             id: 'typing',
@@ -293,6 +298,16 @@ export default function Home() {
             iconClassName: 'text-violet-300',
             buttonClassName: 'top-action-english border-violet-300/35 bg-violet-500/12 text-violet-100 shadow-violet-500/10',
             onClick: handleOpenEnglishGame,
+        },
+        {
+            id: '3d-typing',
+            testId: '3d-typing-button',
+            label: '3D 打字闯关',
+            title: '进入 3D 打字闯关（浏览器直接玩）',
+            Icon: Mountain,
+            iconClassName: 'text-teal-300',
+            buttonClassName: 'top-action-3d border-teal-300/35 bg-teal-500/12 text-teal-100 shadow-teal-500/10',
+            onClick: handleOpen3DTyping,
         },
         {
             id: 'microstudio-game',

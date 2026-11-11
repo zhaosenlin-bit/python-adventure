@@ -26,6 +26,7 @@
 | 🥊 **1v1 PvP** | 实时 1v1 编程对战，心跳 15s、60s 内最多 3 个房间 |
 | 🐾 **宠物系统** | 宠物养成、孵化、装饰、小屋交互、宠物聊天（DeepSeek 兜底） |
 | ⌨️ **打字训练** | 9 款独立打字游戏，课程进度落库，支持语音 TTS / 速度排行 |
+| 🏔️ **3D 打字闯关** | 网页版（three.js，浏览器直接玩）：探索 → 答题 → 开门 → 下一关，每天 24 关，中文可按拼音打 |
 | 🧠 **代码研究** | AI 驱动的代码研究入口，配套战役化引导 |
 
 ### 🛠️ 创意工坊
@@ -95,6 +96,87 @@ npm install
 npm run dev
 ```
 
+### 🏔️ 3D 打字闯关
+
+在浏览器里直接玩的 3D 打字闯关，玩法参考 Poki 的《The Pillar》：
+探索 → 答题 → 开门 → 进入下一关。
+
+* **网页版**：Next.js + three.js，浏览器直接玩，成绩存在本地
+
+#### 网页版
+
+```powershell
+npm install
+npm run dev
+```
+
+启动后把下面这**一整行**复制到浏览器（只复制这一行，别把中文标点也带进去）：
+
+```text
+http://localhost:3000/typing-3d
+```
+
+| 操作 | 电脑 | 手机 |
+| --- | --- | --- |
+| 选出生点 | 点地面光环 / `1`~`4` 键 | 点底部列表 |
+| 移动 | `W` `A` `S` `D` / 方向键 | 左下角虚拟摇杆 |
+| 转视角 | 按住鼠标拖动 | 拖动屏幕 |
+| 答题 | 走到发光面板按 `E` | 点「打开打字面板」 |
+| 提交 / 取消 | `Enter` / `Esc` | 点按钮 |
+| 切换第一 / 第三人称 | `V` | 点「视角」按钮 |
+| 疾跑 | `Shift` | — |
+
+* **题库来自站点自己的课程缓存**（3000+ 份离线课程），中文句段自带拼音，
+  电脑没装中文输入法也能按拼音打；左上角可随时切换「打拼音 / 打汉字」
+* **拼音怎么打都行**：带声调的 `wèi nán cháo`、不带声调的 `wei nan chao`、
+  用 `v` 代替 `ü`（`lǜ` 写成 `lv` 也算对）、全大写、多打空格 —— 都能判对
+* **成绩会存下来**：成绩写进浏览器的 `lexiang.typing.history`（打字训练中心的游戏卡片
+  会显示最好成绩），同时提交到服务端 `mode=3d-typing`（换台设备也看得见）；
+  开场卡片会列出排行榜前三（每分钟字符数 + 正确率）
+* 每天按系统日期 `YYYYMMDD` 作种子抽 **24 关**，当天固定、跨天自动换新、当天不重复
+* 题目分「短 / 中 / 长」三档，逐关变难；关卡房间也越往后柱子越多
+* 顶栏常驻显示「第 N / 24 关」、用时、正确率、连击；全部走完后出结算
+* 首页顶栏、打字训练中心的游戏列表都能进
+* 开局先选出生点：房间四边摆 4 个带名字的地面光环（南墙西段 / 南墙东段 / 西墙南段 / 东墙南段），
+  点光环或按 `1`~`4` 键选中，再点「确认出发」才进入第 1 关；出生点不同，走向面板的路线也不同
+
+题库是从课程缓存里现挖的，课程更新后重新生成即可：
+
+```powershell
+python scripts\build_typing3d_bank.py   # 生成 public/typing/data/typing3d-bank.json
+```
+
+#### 网页版 · 需求 → 代码对照
+
+| 需求 | 网页版对应代码 |
+| --- | --- |
+| 主界面「3D 打字闯关」按钮 | `app/page.tsx::handleOpen3DTyping()` → `router.push("/typing-3d")` |
+| 每天的题目（当天固定、跨天换新） | `lib/typing3d/bank.ts::selectDailyQuestions()`，种子是 `dateKeyFor()` 的 `YYYYMMDD` |
+| 3D 房间 / 墙 / 门 / 柱子 / 答题面板 | `lib/typing3d/level.ts::buildLevel()`（纯数据，不碰 three.js） |
+| 答题面板（发光材质、带「打字」字样、微微上下浮动） | `components/typing3d/engine.ts::buildPanel()`；面板上的「打字」角标画在 `paintPanelTexture()` 里，上下浮动在 `updateAnimations()` 里改 `panelFloat.position.y` |
+| 雾效 + 暖色灯光 + 远处可见的光柱 | `engine.ts::loadLevel()` 里的 `THREE.Fog`；火盆暖光在 `buildBraziers()`，面板上方的光柱在 `buildPanel()` 的 `beacon` |
+| 四个出生点（名字 + 地面光环） | `lib/typing3d/level.ts::buildSpawnPlans()`；光环 / 光柱 / 名字牌在 `components/typing3d/engine.ts::showSpawnMarkers()` |
+| 选出生点 + 「确认出发」 | `components/typing3d/Typing3DGame.tsx` 里 `phase === "spawn"` 的选择界面 + `confirmSpawn()` |
+| WASD 移动 / 碰撞 / 第一与第三人称 | `components/typing3d/engine.ts::updateMovement()`、`updateCamera()`（`V` 键切换视角） |
+| 走近面板按 `E`，或直接点面板 | `engine.ts::updateNearPanel()` 与 `pickAt()` → `Typing3DGame.tsx::openTyping()` |
+| 打字窗口（大题目 + 输入框 + 回车提交） | `Typing3DGame.tsx` 里 `phase === "typing"`；回车在输入框的 `onKeyDown` 里判断 |
+| 打对 → 面板变绿、门缓缓升起 | `engine.ts::solvePanel()`；开门动画在 `updateAnimations()` 里插值 `doorSlab.position.y` |
+| 打错 → 标红，已输入的内容保留，改完可以接着交 | `Typing3DGame.tsx::handleSubmit()` 的 else 分支 |
+| 走进打开的门 → 下一关 | `engine.ts::checkDoor()` → `onReachDoor` → 换关 |
+| 闯关完成结算页 | `Typing3DGame.tsx::finishRun()`（正确数 / 总用时 / 正确率 / 返回大厅） |
+
+#### 网页版 · 验收脚本
+
+两个脚本都要先起开发服务器（`.\start-dev.ps1` 或 `npm run dev`）：
+
+```powershell
+node scripts\qa-typing3d.mjs          # 主验收：画面、面板、答题、开门、换关、窄视口
+node scripts\qa-typing3d-fullrun.mjs  # 整轮通关：24 关从头打到尾，再查成绩与排行榜
+```
+
+`qa-typing3d-fullrun.mjs` 会逐关检查「穿门后正好进到下一关」，
+专门盯一次性穿门跳两关这种回归。
+
 ### 校验
 
 ```bash
@@ -134,9 +216,10 @@ game-google/
 │   ├── pet/                    # 宠物小屋、孵化、商店
 │   ├── providers/              # 全局 Context
 │   ├── ui/                     # 原子 UI
-│   └── world/                  # 开放世界场景 / 实体 / 技能
+│   ├── world/                  # 开放世界场景 / 实体 / 技能
+│   └── typing3d/               # 3D 打字闯关（three.js 引擎 + React 界面）
 │
-├── public/typing/              # 9 款打字 SPA（独立 HTML/JS/CSS/资源）
+├── public/typing/              # 打字 SPA（独立 HTML/JS/CSS/资源）+ 3D 闯关离线题库
 │
 ├── backend/                    # FastAPI 服务
 │   ├── app/api/v1/             # 27 个路由：auth/pvp/pets/typing/...
@@ -146,13 +229,13 @@ game-google/
 │   ├── migrations/             # 数据库迁移
 │   └── tests/                  # pytest 覆盖
 │
-├── lib/                        # 战役配置、题库、输入管理
+├── lib/                        # 战役配置、题库、输入管理、3D 闯关纯逻辑
 ├── store/                      # Zustand 状态（game/auth/pvp）
 ├── server/                     # Node 侧 WS / 实时网关
 ├── scripts/                    # 同步 / 资产刷新 / QA 脚本
 ├── deploy/                     # 生产部署脚本 + nginx + 文档
 ├── release/                    # 部署包 + SHA256SUMS + 发布说明
-└── __tests__/                  # Jest 单元测试（15 套件 / 64 用例）
+└── __tests__/                  # Jest 单元测试（22 套件 / 112 用例）
 ```
 
 ---
@@ -164,6 +247,7 @@ game-google/
 | 前端框架 | Next.js 16 + React 19 + TypeScript 5 |
 | 样式 | Tailwind CSS 4 |
 | 游戏引擎 | Phaser 3.90 |
+| 3D 引擎 | three.js 0.187（网页版 3D 打字闯关） |
 | 状态管理 | Zustand 5 |
 | 后端框架 | FastAPI + SQLAlchemy + Pydantic |
 | 数据库 | SQLite（生产固定 `/www/data/game-backend/code_adventure.db`） |
