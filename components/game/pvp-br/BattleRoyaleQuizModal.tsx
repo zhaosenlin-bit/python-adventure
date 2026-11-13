@@ -137,6 +137,8 @@ export default function BattleRoyaleQuizModal({
                 </div>
               ) : (
                 <textarea
+                  id="battle-royale-answer"
+                  name="battleRoyaleAnswer"
                   value={currentInput}
                   onChange={(event) => storeAnswer(event.target.value)}
                   placeholder="输入你的答案"

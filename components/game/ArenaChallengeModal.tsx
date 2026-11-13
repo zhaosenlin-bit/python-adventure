@@ -239,6 +239,8 @@ export default function ArenaChallengeModal({
                         </div>
                         <div className="h-[360px] overflow-hidden rounded-2xl border border-slate-700 bg-slate-950">
                             <textarea
+                                id="arena-challenge-code"
+                                name="arenaChallengeCode"
                                 ref={textareaRef}
                                 value={code}
                                 onChange={(event) => setCode(event.target.value)}

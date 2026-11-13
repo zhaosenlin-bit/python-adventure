@@ -14,8 +14,9 @@ def add_massive_content():
     db = SessionLocal()
     
     print("[1/3] 删除旧的地图对象...")
-    db.query(MapObject).delete()
-    db.commit()
+    if not os.getenv("SEED_SKIP_CLEAR"):
+        db.query(MapObject).delete()
+        db.commit()
     
     print("[2/3] 创建大量地图内容...")
     

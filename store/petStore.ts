@@ -145,7 +145,7 @@ export const usePetStore = create<PetState>()(
             });
             return;
           }
-          console.error('[PetStore] Failed to load pets:', error);
+          console.warn('[PetStore] Failed to load pets:', error);
           
           // 🔒 检测401错误，清理本地数据并触发token过期处理
           if (errorMessage.includes('Unauthorized') || errorMessage.includes('401')) {
@@ -191,7 +191,7 @@ export const usePetStore = create<PetState>()(
           debugLog('[PetStore] Pet created:', newPet);
           return newPet;
         } catch (error) {
-          console.error('[PetStore] Failed to create pet:', error);
+          console.warn('[PetStore] Failed to create pet:', error);
           set({
             error: error instanceof Error ? error.message : 'Failed to create pet',
             isLoading: false
@@ -223,7 +223,7 @@ export const usePetStore = create<PetState>()(
           
           debugLog('[PetStore] Pet fed:', updatedPet);
         } catch (error) {
-          console.error('[PetStore] Failed to feed pet:', error);
+          console.warn('[PetStore] Failed to feed pet:', error);
           set({ error: error instanceof Error ? error.message : 'Failed to feed pet' });
           throw error;
         }
@@ -251,7 +251,7 @@ export const usePetStore = create<PetState>()(
           
           debugLog('[PetStore] Pet rescued:', updatedPet);
         } catch (error) {
-          console.error('[PetStore] Failed to rescue pet:', error);
+          console.warn('[PetStore] Failed to rescue pet:', error);
           set({ error: error instanceof Error ? error.message : 'Failed to rescue pet' });
         }
       },
@@ -275,7 +275,7 @@ export const usePetStore = create<PetState>()(
           
           debugLog('[PetStore] Pet attributes updated:', updatedPet);
         } catch (error) {
-          console.error('[PetStore] Failed to update pet attributes:', error);
+          console.warn('[PetStore] Failed to update pet attributes:', error);
           set({ error: error instanceof Error ? error.message : 'Failed to update attributes' });
         }
       },
@@ -299,7 +299,7 @@ export const usePetStore = create<PetState>()(
           
           debugLog('[PetStore] Pet name updated:', updatedPet);
         } catch (error) {
-          console.error('[PetStore] Failed to update pet name:', error);
+          console.warn('[PetStore] Failed to update pet name:', error);
           set({ error: error instanceof Error ? error.message : 'Failed to update pet name' });
           throw error;
         }
@@ -351,7 +351,7 @@ export const usePetStore = create<PetState>()(
           
           debugLog('[PetStore] Pet hatched:', updatedPet);
         } catch (error) {
-          console.error('[PetStore] Failed to hatch pet:', error);
+          console.warn('[PetStore] Failed to hatch pet:', error);
           set({ error: error instanceof Error ? error.message : 'Failed to hatch pet' });
           throw error;
         }
@@ -376,7 +376,7 @@ export const usePetStore = create<PetState>()(
           
           debugLog('[PetStore] Hatch progress updated:', updatedPet);
         } catch (error) {
-          console.error('[PetStore] Failed to update hatch progress:', error);
+          console.warn('[PetStore] Failed to update hatch progress:', error);
           set({ error: error instanceof Error ? error.message : 'Failed to update hatch progress' });
         }
       },
@@ -403,7 +403,7 @@ export const usePetStore = create<PetState>()(
           
           debugLog('[PetStore] Pet evolved:', updatedPet);
         } catch (error) {
-          console.error('[PetStore] Failed to evolve pet:', error);
+          console.warn('[PetStore] Failed to evolve pet:', error);
           set({ error: error instanceof Error ? error.message : 'Failed to evolve pet' });
           throw error;
         }
@@ -458,7 +458,7 @@ export const usePetStore = create<PetState>()(
           set({ isSyncing: false });
           debugLog('[PetStore] Sync complete');
         } catch (error) {
-          console.error('[PetStore] Failed to sync with cloud:', error);
+          console.warn('[PetStore] Failed to sync with cloud:', error);
           set({ isSyncing: false });
         }
       },

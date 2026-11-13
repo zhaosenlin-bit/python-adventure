@@ -15,8 +15,9 @@ def init_extended_world_data():
     db = SessionLocal()
     
     try:
-        # 清空现有数据
-        db.query(MapObject).delete()
+        # 清空现有数据（SEED_SKIP_CLEAR=1 时跳过，由 seed_all.py 统一管理清理顺序）
+        if not os.getenv("SEED_SKIP_CLEAR"):
+            db.query(MapObject).delete()
         
         # 扩展的地图对象数据（基于猇亭区真实地点）
         map_objects = [

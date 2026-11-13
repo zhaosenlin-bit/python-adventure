@@ -66,7 +66,7 @@ export const useCoinStore = create<CoinState>()(
             return;
           }
 
-          console.error('[CoinStore] failed to load balance:', error);
+          console.warn('[CoinStore] failed to load balance:', error);
           showFriendlyErrorToast(error, '金币加载失败，请稍后再试');
           set({
             error: toFriendlyMessage(error, '金币加载失败，请稍后再试'),
@@ -82,7 +82,7 @@ export const useCoinStore = create<CoinState>()(
           const transactions = await getCoinsHistory(token, limit);
           set({ transactions, error: null });
         } catch (error) {
-          console.error('[CoinStore] failed to load history:', error);
+          console.warn('[CoinStore] failed to load history:', error);
           showFriendlyErrorToast(error, '金币记录加载失败');
           set({ error: toFriendlyMessage(error, '金币记录加载失败') });
         }
@@ -108,7 +108,7 @@ export const useCoinStore = create<CoinState>()(
       deductCoins: (amount: number, type: string, source: string, description?: string) => {
         const currentBalance = get().balance;
         if (currentBalance < amount) {
-          console.error('[CoinStore] insufficient balance:', currentBalance, 'required:', amount);
+          console.warn('[CoinStore] insufficient balance:', currentBalance, 'required:', amount);
           return;
         }
 

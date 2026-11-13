@@ -125,6 +125,8 @@ export default function SkillChallengeModal({ isOpen, onClose, skillId, onUnlock
                                 <p className="text-slate-600">{challenge.description}</p>
                                 <div className="bg-black rounded-lg p-4 font-mono text-sm text-green-400 min-h-[300px] max-h-[400px] overflow-y-auto">
                                     <textarea
+                                        id="skill-challenge-code"
+                                        name="skillChallengeCode"
                                         value={code}
                                         onChange={(e) => setCode(e.target.value)}
                                         className="w-full h-[280px] bg-transparent outline-none resize-none"

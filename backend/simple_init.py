@@ -3,13 +3,18 @@
 """
 import sqlite3
 import hashlib
+import os
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from app.core.database import require_sqlite_db_path
 
 print("=" * 60)
 print("   创建最简单的数据库")
 print("=" * 60)
 
 # 创建数据库连接
-conn = sqlite3.connect('backend/code_adventure.db')
+conn = sqlite3.connect(require_sqlite_db_path())
 cursor = conn.cursor()
 
 # 创建users表

@@ -120,6 +120,8 @@ export default function QuizModal({ isOpen, quiz, onCorrect, onWrong, onClose }:
                 ) : (
                     <div className="mb-6">
                         <input
+                            id="quiz-answer"
+                            name="quizAnswer"
                             type="text"
                             value={selectedAnswer}
                             onChange={(e) => setSelectedAnswer(e.target.value)}

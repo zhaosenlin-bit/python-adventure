@@ -231,6 +231,8 @@ export default function QuestionEditor({
               题目内容 <span className="text-red-400">*</span>
             </label>
             <textarea
+              id="question-text"
+              name="questionText"
               value={questionText}
               onChange={(e) => setQuestionText(e.target.value)}
               placeholder="请输入题目内容..."
@@ -264,6 +266,8 @@ export default function QuestionEditor({
                       {String.fromCharCode(65 + index)}
                     </span>
                     <input
+                      id="question-option"
+                      name="questionOption"
                       type="text"
                       value={opt}
                       onChange={(e) => handleOptionChange(index, e.target.value)}
@@ -308,6 +312,8 @@ export default function QuestionEditor({
                 正确答案 <span className="text-red-400">*</span>
               </label>
               <input
+                id="question-answer"
+                name="questionAnswer"
                 type="text"
                 value={answer}
                 onChange={(e) => setAnswer(e.target.value)}
@@ -329,6 +335,8 @@ export default function QuestionEditor({
               解析说明 <span className="text-gray-400 text-xs">(可选)</span>
             </label>
             <textarea
+              id="question-explanation"
+              name="questionExplanation"
               value={explanation}
               onChange={(e) => setExplanation(e.target.value)}
               placeholder="答题后显示的解析..."
@@ -371,6 +379,8 @@ export default function QuestionEditor({
               <div>
                 <label className="block text-xs text-gray-400 mb-1">奖励类型</label>
                 <select
+                  id="question-reward-type"
+                  name="questionRewardType"
                   value={rewardType}
                   onChange={(e) => setRewardType(e.target.value as RewardType)}
                   className="w-full px-3 py-2 bg-black/30 border border-yellow-600/30 rounded-lg text-white focus:outline-none focus:border-yellow-500"
@@ -385,6 +395,8 @@ export default function QuestionEditor({
               <div>
                 <label className="block text-xs text-gray-400 mb-1">奖励数值</label>
                 <input
+                  id="question-reward"
+                  name="questionReward"
                   type="number"
                   value={rewardValue}
                   onChange={(e) => setRewardValue(Number(e.target.value))}

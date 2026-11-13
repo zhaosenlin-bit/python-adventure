@@ -568,6 +568,8 @@ export default function QuestionBankEditor({ isOpen, onClose }: QuestionBankEdit
                   <div>
                     <label className="block text-slate-200 text-sm mb-2">题目内容 *</label>
                     <textarea
+                      id="question-bank-text"
+                      name="questionText"
                       value={formQuestion}
                       onChange={(e) => setFormQuestion(e.target.value)}
                       placeholder="请输入题目内容..."
@@ -585,6 +587,8 @@ export default function QuestionBankEditor({ isOpen, onClose }: QuestionBankEdit
                           <div key={index} className="flex items-center gap-2">
                             <span className="text-slate-300 w-6">{String.fromCharCode(65 + index)}.</span>
                             <input
+                              id="question-bank-option"
+                              name="questionOption"
                               type="text"
                               value={option}
                               onChange={(e) => {
@@ -620,6 +624,8 @@ export default function QuestionBankEditor({ isOpen, onClose }: QuestionBankEdit
                     <div>
                       <label className="block text-slate-200 text-sm mb-2">正确答案 *</label>
                       <input
+                        id="question-bank-answer"
+                        name="questionAnswer"
                         type="text"
                         value={formAnswer}
                         onChange={(e) => setFormAnswer(e.target.value)}
@@ -633,6 +639,8 @@ export default function QuestionBankEditor({ isOpen, onClose }: QuestionBankEdit
                   <div>
                     <label className="block text-slate-200 text-sm mb-2">答案解释（可选）</label>
                     <textarea
+                      id="question-bank-explanation"
+                      name="questionExplanation"
                       value={formExplanation}
                       onChange={(e) => setFormExplanation(e.target.value)}
                       placeholder="答对或答错后显示的解释..."

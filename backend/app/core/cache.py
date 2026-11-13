@@ -46,7 +46,12 @@ def init_redis() -> None:
     except Exception as e:
         _redis_available = False
         _redis_client = None
-        logger.warning("redis unavailable, falling back to memory cache: %s", e)
+        logger.warning(
+            "Redis 不可用（%s），已降级为进程内内存缓存。单进程本地开发没问题，"
+            "但多 worker / 生产部署下缓存不共享，排行榜等接口会退化成每次直查数据库。"
+            "生产环境请配置 REDIS_URL。",
+            e,
+        )
 
 
 def _cleanup_memory_cache() -> None:

@@ -363,6 +363,8 @@ export default function PetChatModal({ isOpen, onClose, petId, petName }: PetCha
           {error && <div className="mb-2 rounded-lg bg-[#fff0ec] px-2 py-1 text-xs text-[#a35d57]">{error}</div>}
           <div className="flex gap-2">
             <input
+              id="pet-chat-input"
+              name="petChatInput"
               ref={inputRef}
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value.slice(0, MAX_MESSAGE_LENGTH))}

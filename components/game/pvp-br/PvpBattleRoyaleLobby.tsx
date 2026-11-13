@@ -204,6 +204,8 @@ export default function PvpBattleRoyaleLobby({
                     <label className="block">
                       <div className="mb-2 text-sm font-semibold text-white">房间名称</div>
                       <input
+                        id="pvp-br-room-name"
+                        name="pvpBrRoomName"
                         value={roomName}
                         onChange={(event) => setRoomName(event.target.value)}
                         maxLength={48}

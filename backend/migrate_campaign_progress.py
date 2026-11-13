@@ -3,9 +3,13 @@
 """
 import sqlite3
 import os
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from app.core.database import require_sqlite_db_path
 
 def migrate():
-    db_path = os.path.join(os.path.dirname(__file__), 'code_adventure.db')
+    db_path = require_sqlite_db_path()
     
     if not os.path.exists(db_path):
         print(f"数据库文件不存在: {db_path}")

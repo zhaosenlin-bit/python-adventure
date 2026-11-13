@@ -23,6 +23,22 @@ export default function RegisterForm({ onSwitchToLogin }: RegisterFormProps) {
     clearError();
     setLocalError('');
 
+    const trimmedUsername = username.trim();
+    const trimmedEmail = email.trim();
+
+    if (!trimmedUsername) {
+      setLocalError('请输入用户名。');
+      return;
+    }
+
+    // 邮箱规则要和后端保持一致：域名必须带顶级域（如 xxx.com）。
+    // HTML5 的 type="email" 允许 a@b 这种没有点的写法，后端会直接返回 422，
+    // 所以这里先在本地拦一道，给出能看懂的提示。
+    if (!/^[^\s@]+@[^\s@.]+(?:\.[^\s@.]+)+$/.test(trimmedEmail)) {
+      setLocalError('邮箱格式不正确，示例：name@example.com');
+      return;
+    }
+
     if (password !== confirmPassword) {
       setLocalError('两次输入的密码不一致。');
       return;
@@ -34,7 +50,7 @@ export default function RegisterForm({ onSwitchToLogin }: RegisterFormProps) {
     }
 
     try {
-      await register(username, email, password);
+      await register(trimmedUsername, trimmedEmail, password);
     } catch {
       // store handles request errors
     }
@@ -74,6 +90,8 @@ export default function RegisterForm({ onSwitchToLogin }: RegisterFormProps) {
               用户名
             </label>
             <input
+              id="register-username"
+              name="username"
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
@@ -90,6 +108,8 @@ export default function RegisterForm({ onSwitchToLogin }: RegisterFormProps) {
               邮箱
             </label>
             <input
+              id="register-email"
+              name="email"
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -106,6 +126,8 @@ export default function RegisterForm({ onSwitchToLogin }: RegisterFormProps) {
               密码
             </label>
             <input
+              id="register-password"
+              name="password"
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -122,6 +144,8 @@ export default function RegisterForm({ onSwitchToLogin }: RegisterFormProps) {
               确认密码
             </label>
             <input
+              id="register-confirm-password"
+              name="confirmPassword"
               type="password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}

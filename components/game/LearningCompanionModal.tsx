@@ -365,6 +365,8 @@ export default function LearningCompanionModal({
       <div className="border-t border-white/10 bg-slate-900/90 px-4 py-4">
         <div className="flex items-start gap-3">
           <input
+            id="companion-input"
+            name="companionInput"
             ref={inputRef}
             value={inputValue}
             onChange={(event) => setInputValue(event.target.value.slice(0, 240))}

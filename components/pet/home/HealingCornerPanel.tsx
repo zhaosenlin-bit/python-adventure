@@ -1368,6 +1368,8 @@ export default function HealingCornerPanel({
                     exit={{ opacity: 0, y: -12 }}
                   >
                     <textarea
+                      id="healing-release-detail"
+                      name="healingReleaseDetail"
                       value={releaseText}
                       onChange={(event) => setReleaseText(event.target.value.slice(0, 40))}
                       rows={3}
@@ -1770,6 +1772,8 @@ export default function HealingCornerPanel({
                 </div>
                 <div className="mt-2 flex gap-2">
                   <input
+                    id="healing-release-text"
+                    name="healingReleaseText"
                     value={releaseText}
                     onChange={(event) => setReleaseText(event.target.value.slice(0, 24))}
                     placeholder="也可以写一句"

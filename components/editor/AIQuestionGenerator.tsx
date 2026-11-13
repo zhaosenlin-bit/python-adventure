@@ -406,6 +406,8 @@ function ConfigStep({
       <div>
         <label className="block text-slate-200 text-sm mb-2 font-medium">补充说明（可选）</label>
         <input
+          id="ai-question-extra-prompt"
+          name="extraPrompt"
           type="text"
           value={state.extraPrompt}
           onChange={(e) => setState(prev => ({ ...prev, extraPrompt: e.target.value }))}

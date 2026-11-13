@@ -365,6 +365,8 @@ export default function PvpLobby({ onClose, onStartBattle }: PvpLobbyProps) {
 
                                 <div className="space-y-4">
                                     <input
+                                        id="pvp-room-id"
+                                        name="pvpRoomId"
                                         type="text"
                                         value={roomIdInput}
                                         onChange={(e) => setRoomIdInput(e.target.value.toUpperCase())}

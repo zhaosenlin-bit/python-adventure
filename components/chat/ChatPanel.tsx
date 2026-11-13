@@ -256,6 +256,8 @@ export default function ChatPanel() {
           <div className="flex items-center gap-1">
             <EmojiPicker onSelect={handleEmoji} />
             <input
+              id="chat-message-input"
+              name="chatMessage"
               type="text"
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value.slice(0, CHAT_CONFIG.MAX_MESSAGE_LENGTH))}

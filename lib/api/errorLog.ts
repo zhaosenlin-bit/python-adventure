@@ -3,7 +3,17 @@
  * 将前端错误上报到后端存储
  */
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://game.codebn.cn';
+import { getApiOrigin } from '@/lib/config/api';
+
+/**
+ * 错误上报走当前配置的后端。
+ *
+ * 旧版本这里硬编码了线上域名 'https://game.codebn.cn'，于是本地开发时所有报错
+ * 都被发到生产服务器上，本地数据库里一条都留不下 —— 出问题时本地查不到。
+ */
+function apiBase(): string {
+  return getApiOrigin();
+}
 
 export interface ErrorLogData {
   error_message: string;
@@ -30,12 +40,12 @@ export async function reportError(data: ErrorLogData): Promise<boolean> {
     // 优先使用 sendBeacon（页面关闭时也能发送）
     if (typeof navigator !== 'undefined' && navigator.sendBeacon) {
       const blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
-      const sent = navigator.sendBeacon(`${API_BASE}/api/v1/error-logs/report`, blob);
+      const sent = navigator.sendBeacon(`${apiBase()}/api/v1/error-logs/report`, blob);
       if (sent) return true;
     }
 
     // 降级使用 fetch
-    const response = await fetch(`${API_BASE}/api/v1/error-logs/report`, {
+    const response = await fetch(`${apiBase()}/api/v1/error-logs/report`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

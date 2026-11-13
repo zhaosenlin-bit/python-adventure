@@ -107,7 +107,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
           currentUserId = parsed?.state?.user?.id || null;
         }
       } catch (e) {
-        console.error('[ChatStore] 获取当前用户ID失败:', e);
+        console.warn('[ChatStore] 获取当前用户ID失败:', e);
       }
     }
     

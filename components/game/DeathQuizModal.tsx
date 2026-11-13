@@ -176,7 +176,7 @@ export default function DeathQuizModal({ isOpen, onSuccess }: DeathQuizModalProp
               )}
               
               {question.type === 'fill' && (
-                <input type="text" value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && submit()}
+                <input id="death-quiz-answer" name="deathQuizAnswer" type="text" value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && submit()}
                   placeholder="输入答案..." className="w-full p-3 bg-slate-700 text-white rounded-lg border-2 border-slate-600 focus:border-blue-400 focus:outline-none" autoFocus />
               )}
               

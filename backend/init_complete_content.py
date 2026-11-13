@@ -277,8 +277,9 @@ def init_shengshi_map_content():
     
     db = next(get_db())
     
-    # 删除旧的地图对象
-    db.query(MapObject).delete()
+    # 删除旧的地图对象（SEED_SKIP_CLEAR=1 时跳过，由 seed_all.py 统一管理清理顺序）
+    if not os.getenv("SEED_SKIP_CLEAR"):
+        db.query(MapObject).delete()
     
     map_objects = [
         # === 新手村区域（基础学习区）===

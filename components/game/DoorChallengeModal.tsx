@@ -171,6 +171,8 @@ export default function DoorChallengeModal({ isOpen, onClose, doorId, onUnlock }
                                 {/* Code Editor */}
                                 <div className="bg-black rounded-lg p-4 font-mono text-sm text-green-400 min-h-[250px] max-h-[350px] overflow-y-auto">
                                     <textarea
+                                        id="door-challenge-code"
+                                        name="doorChallengeCode"
                                         value={code}
                                         onChange={(e) => setCode(e.target.value)}
                                         onKeyDown={(e) => e.stopPropagation()}

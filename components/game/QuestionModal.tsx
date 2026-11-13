@@ -576,6 +576,8 @@ export default function QuestionModal({
               {/* 填空题 - 移动端优化 */}
               {(question.type === 'fill' || question.type === 'math') && (
                 <input
+                  id="question-modal-answer"
+                  name="questionAnswer"
                   type="text"
                   value={userInput}
                   onChange={(e) => setUserInput(e.target.value)}
@@ -589,6 +591,8 @@ export default function QuestionModal({
               {question.type === 'code' && (
                 <div className="mb-4">
                   <textarea
+                    id="question-modal-reasoning"
+                    name="questionReasoning"
                     value={userInput}
                     onChange={(e) => setUserInput(e.target.value)}
                     placeholder="请输入代码..."

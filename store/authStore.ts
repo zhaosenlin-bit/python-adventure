@@ -126,18 +126,11 @@ export const useAuthStore = create<AuthState>()(
                     debugLog('[AuthStore] Login response status:', response.status);
 
                     if (!response.ok) {
-                        let errorMessage = '登录失败，请检查用户名和密码后重试';
-                        try {
-                            const error = await response.json();
-                            console.error('[AuthStore] Login error:', error);
-                            if (typeof error.detail === 'string') {
-                                errorMessage = error.detail;
-                            } else {
-                                errorMessage = JSON.stringify(error.detail || error);
-                            }
-                        } catch {
-                            errorMessage = `HTTP ${response.status}`;
-                        }
+                        // 登录失败属于「可预期」的业务失败（密码错、账号不存在等），
+                        // 不能用 console.error —— Next.js 开发模式会拦截 console.error 并弹出
+                        // 全屏错误浮层，把整个页面盖住。
+                        const errorMessage = await readErrorMessage(response, '登录失败，请检查用户名和密码后重试');
+                        console.warn(`[AuthStore] Login failed (HTTP ${response.status}):`, errorMessage);
                         throw new Error(errorMessage);
                     }
 
@@ -159,7 +152,7 @@ export const useAuthStore = create<AuthState>()(
                         await useGameStore.getState().loadFromCloud();
                         debugLog('[AuthStore] Game progress loaded from cloud');
                     } catch (error) {
-                        console.error('[AuthStore] Failed to load game progress:', error);
+                        console.warn('[AuthStore] Failed to load game progress:', error);
                     }
 
                     // 🐾 Load pet status after successful login
@@ -183,10 +176,11 @@ export const useAuthStore = create<AuthState>()(
                             }
                         }
                     } catch (error) {
-                        console.error('[AuthStore] Failed to load pet status:', error);
+                        console.warn('[AuthStore] Failed to load pet status:', error);
                     }
                 } catch (error: unknown) {
-                    console.error('[AuthStore] Login error:', error);
+                    // 已处理的登录失败：用 console.warn 记录，避免 Next 开发模式弹出全屏错误浮层。
+                    console.warn('[AuthStore] Login error:', error);
                     set({
                         error: normalizeFriendlyAuthError(error, '登录失败，请稍后重试'),
                         isLoading: false,
@@ -234,8 +228,8 @@ export const useAuthStore = create<AuthState>()(
                     debugLog('[AuthStore] Auto-logging in...');
                     await get().login(username, password);
                 } catch (error: unknown) {
-                    console.error('[AuthStore] Registration error:', error);
-                    console.error('[AuthStore] Error message:', error instanceof Error ? error.message : String(error));
+                    // 已处理的注册失败：用 console.warn 记录，避免 Next 开发模式弹出全屏错误浮层。
+                    console.warn('[AuthStore] Registration error:', error);
                     set({
                         error: normalizeFriendlyAuthError(error, '注册失败，请稍后重试'),
                         isLoading: false,
@@ -287,7 +281,7 @@ export const useAuthStore = create<AuthState>()(
                     const user = await response.json();
                     set({ user });
                 } catch (error: unknown) {
-                    console.error('Failed to load user profile:', error);
+                console.warn('Failed to load user profile:', error);
                     // If token is invalid, logout
                     get().logout();
                 }
@@ -330,7 +324,7 @@ export const useAuthStore = create<AuthState>()(
                     return true;
                 } catch (error) {
                     // 网络错误，不清除登录状态（可能是离线）
-                    console.error('[AuthStore] Token validation error:', error);
+                console.warn('[AuthStore] Token validation error:', error);
                     return false;
                 }
             },

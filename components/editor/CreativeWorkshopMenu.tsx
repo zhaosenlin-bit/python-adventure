@@ -911,6 +911,8 @@ export default function CreativeWorkshopMenu({
               {currentQuizQuestion.type === 'fill' && (
                 <div className="mb-6">
                   <input
+                    id="workshop-answer-input"
+                    name="selectedAnswer"
                     type="text"
                     value={selectedAnswer || ''}
                     onChange={(e) => {

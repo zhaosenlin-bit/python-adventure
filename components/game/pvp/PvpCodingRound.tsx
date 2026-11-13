@@ -195,6 +195,8 @@ export default function PvpCodingRound({ onComplete }: PvpCodingRoundProps) {
                                     <span className="text-gray-500">Tab = 4空格</span>
                                 </div>
                                 <textarea
+                                    id="pvp-coding-input"
+                                    name="pvpCodingCode"
                                     className="flex-1 w-full bg-gray-950 text-green-400 font-mono text-sm p-4 resize-none focus:outline-none focus:ring-1 focus:ring-green-500/50"
                                     value={code}
                                     onChange={(e) => setCode(e.target.value)}

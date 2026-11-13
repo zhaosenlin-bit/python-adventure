@@ -265,10 +265,10 @@ export const useGameStore = create<GameState>()(
                         }
                     } else {
                         const errorPayload = await response.json().catch(() => null);
-                        console.error('[GameStore] Failed to submit arena score:', errorPayload ?? response.statusText);
+                        console.warn('[GameStore] Failed to submit arena score:', errorPayload ?? response.statusText);
                     }
                 } catch (error) {
-                    console.error('Failed to submit score:', error);
+                    console.warn('Failed to submit score:', error);
                 }
             },
 
@@ -405,7 +405,7 @@ export const useGameStore = create<GameState>()(
                         console.warn('[GameStore] Token expired during load');
                         useAuthStore.getState().handleTokenExpired();
                     } else {
-                        console.error('[GameStore] Failed to load progress from cloud:', error);
+                        console.warn('[GameStore] Failed to load progress from cloud:', error);
                         useAuthStore.getState().setSyncStatus(
                             'failed',
                             toFriendlyMessage(error, '云端进度暂时没有同步成功，本地进度还在。')
@@ -469,7 +469,7 @@ export const useGameStore = create<GameState>()(
                             console.warn('[GameStore] Token expired during save - progress saved locally only');
                             useAuthStore.getState().handleTokenExpired();
                         } else {
-                            console.error('[GameStore] Failed to save progress to cloud:', error);
+                            console.warn('[GameStore] Failed to save progress to cloud:', error);
                             useAuthStore.getState().setSyncStatus(
                                 'failed',
                                 toFriendlyMessage(error, '云端进度暂时没有同步成功，本地进度还在。')

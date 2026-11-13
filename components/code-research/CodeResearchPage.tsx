@@ -3897,6 +3897,8 @@ function LevelScreen({
               />
 
               <textarea
+                id="code-research-code"
+                name="codeResearchCode"
                 ref={editorRef}
                 value={code}
                 onChange={(event) => {

@@ -323,6 +323,8 @@ export default function PetSelection({ isOpen, onClose, onSelect }: PetSelection
 
                   <label className="mb-2 block text-sm text-slate-200">给它取个名字</label>
                   <input
+                    id="pet-select-name"
+                    name="petName"
                     type="text"
                     value={petName}
                     onChange={(event) => setPetName(event.target.value)}

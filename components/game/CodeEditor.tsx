@@ -114,6 +114,8 @@ export default function CodeEditor({
             )}
             <div className="h-full">
                 <textarea
+                    id="code-editor-input"
+                    name="codeEditorCode"
                     value={code}
                     onChange={(e) => handleChange(e.target.value)}
                     className="h-full w-full resize-none bg-[#1e1e1e] p-4 pt-6 font-mono text-sm text-gray-300 focus:outline-none focus:ring-2 focus:ring-cyan-500/50"

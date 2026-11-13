@@ -144,8 +144,33 @@ tmp-br-host-before-fill.png
 /kenney_pico-8-city/
 /kenney_pico-8-city.zip
 
-# AI image generation response metadata may contain temporary signed URLs.
-art/**/*.json
+# 3D 打字闯关（Ursina）运行时缓存：字体副本 / __pycache__
 
 # 3D 打字闯关（网页版）QA 截图输出
 .qa-typing3d/
+game3d/.fontcache/
+game3d/**/__pycache__/
+game3d/.game3d.pid
+
+# AI image generation response metadata may contain temporary signed URLs.
+art/**/*.json
+
+# Aquapark.io 复刻（Ursina）：打包时生成的图标 / 缓存 / 构建产物
+aquapark/assets/
+aquapark_save.json
+aquapark/**/__pycache__/
+build/pyinstaller_aquapark/
+dist/AquaparkIO/
+dist/AquaparkIO-win-x64.zip
+
+# 仓库根目录的人工验收截图 / 临时脚本（不入库）
+/c[0-9].png
+/d[0-9].png
+/i[0-9].png
+/q[0-9].png
+/s2*.png
+/shot_bright.png
+/01_menu.png
+/tmp_*.py
+/fix_*_tmp.py
+/build-exe.log

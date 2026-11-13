@@ -11,8 +11,11 @@ import sqlite3
 import os
 import sys
 
-# 数据库路径
-DB_PATH = os.path.join(os.path.dirname(__file__), "code_adventure.db")
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from app.core.database import require_sqlite_db_path
+
+# 数据库路径（统一来自 settings.DATABASE_URL）
+DB_PATH = require_sqlite_db_path()
 
 
 def create_custom_levels_table():

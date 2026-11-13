@@ -7,7 +7,36 @@ import os
 sys.path.append(os.path.dirname(__file__))
 
 from app.core.database import SessionLocal, engine, Base
-from app.models.skill import Skill, Pet
+from app.models.skill import Skill as SkillModel
+
+_EFFECT_TYPE_TO_SKILL_TYPE = {
+    "damage": "attack",
+    "heal": "buff",
+    "buff": "buff",
+    "random_buff": "buff",
+    "copy_last_skill": "special",
+}
+
+
+def Skill(**legacy):
+    """按当前 Skill 模型字段构造技能对象。
+
+    本脚本沿用旧版字段（category / power / accuracy / unlock_level），
+    这里统一映射到现行的 skill_type / level_required / effects。
+    """
+    effects = dict(legacy.pop("effects", None) or {})
+    for legacy_key in ("category", "power", "accuracy"):
+        if legacy_key in legacy:
+            effects[legacy_key] = legacy.pop(legacy_key)
+
+    if "unlock_level" in legacy:
+        legacy["level_required"] = legacy.pop("unlock_level")
+
+    legacy.setdefault(
+        "skill_type", _EFFECT_TYPE_TO_SKILL_TYPE.get(effects.get("type"), "special")
+    )
+    legacy["effects"] = effects
+    return SkillModel(**legacy)
 
 def init_skills():
     """初始化技能系统"""
@@ -17,7 +46,7 @@ def init_skills():
     
     try:
         # 清空现有数据
-        db.query(Skill).delete()
+        db.query(SkillModel).delete()
         
         # 技能数据（基于教案内容）
         skills = [
@@ -233,7 +262,8 @@ def init_skills():
         # 按分类统计
         categories = {}
         for skill in skills:
-            categories[skill.category] = categories.get(skill.category, 0) + 1
+            category = (skill.effects or {}).get("category", "")
+            categories[category] = categories.get(category, 0) + 1
         
         print("\n技能分类统计:")
         for cat, count in categories.items():
@@ -248,86 +278,12 @@ def init_skills():
         db.close()
 
 def init_pets():
-    """初始化宠物系统"""
-    
-    db = SessionLocal()
-    
-    try:
-        # 清空现有数据
-        db.query(Pet).delete()
-        
-        # 宠物数据
-        pets = [
-            Pet(
-                name="代码精灵",
-                description="可爱的小精灵，帮助你编写代码",
-                icon="🧚",
-                pet_type="助手",
-                base_stats={"hp": 50, "attack": 5, "defense": 5, "support": 20},
-                unlock_level=3,
-                unlock_price=500
-            ),
-            Pet(
-                name="算法狼",
-                description="敏捷的狼，擅长算法战斗",
-                icon="🐺",
-                pet_type="战斗",
-                base_stats={"hp": 80, "attack": 25, "defense": 10, "speed": 30},
-                unlock_level=5,
-                unlock_price=1000
-            ),
-            Pet(
-                name="数据龙",
-                description="强大的龙，掌控数据结构",
-                icon="🐉",
-                pet_type="战斗",
-                base_stats={"hp": 120, "attack": 35, "defense": 20, "special": 30},
-                unlock_level=10,
-                unlock_price=2000
-            ),
-            Pet(
-                name="Bug猎手",
-                description="专门捕捉Bug的猫咪",
-                icon="🐱",
-                pet_type="采集",
-                base_stats={"hp": 60, "attack": 10, "defense": 10, "luck": 40},
-                unlock_level=7,
-                unlock_price=1500
-            ),
-            Pet(
-                name="AI机器鸟",
-                description="智能机器鸟，提供战术建议",
-                icon="🤖🦅",
-                pet_type="助手",
-                base_stats={"hp": 70, "attack": 15, "defense": 15, "intelligence": 50},
-                unlock_level=15,
-                unlock_price=3000
-            ),
-            Pet(
-                name="Python蟒蛇",
-                description="Python的化身，强力战斗宠物",
-                icon="🐍",
-                pet_type="战斗",
-                base_stats={"hp": 100, "attack": 40, "defense": 25, "power": 40},
-                unlock_level=12,
-                unlock_price=2500
-            ),
-        ]
-        
-        db.add_all(pets)
-        db.commit()
-        
-        print(f"\n✅ 成功初始化 {len(pets)} 个宠物")
-        for pet in pets:
-            print(f"  {pet.icon} {pet.name} (Lv.{pet.unlock_level}, {pet.unlock_price}金币)")
-        
-    except Exception as e:
-        print(f"❌ 初始化宠物失败: {e}")
-        import traceback
-        traceback.print_exc()
-        db.rollback()
-    finally:
-        db.close()
+    """宠物目录初始化已废弃，跳过。
+
+    Pet 模型现为「玩家实例」结构（user_id / pet_style / is_egg / hatch_progress），
+    不再存放可解锁的宠物模板行；宠物图鉴目录由前端 EvolutionPokedex 维护。
+    """
+    print("ℹ️  宠物目录初始化已废弃（模型已改为玩家实例），跳过。")
 
 if __name__ == "__main__":
     print("🎮 初始化技能和宠物系统...")

@@ -443,6 +443,8 @@ export default function PetMainPanel() {
                     {isEditingName ? (
                       <div className="flex items-center gap-1">
                         <input
+                          id="pet-main-name"
+                          name="petName"
                           type="text"
                           value={petName}
                           onChange={(e) => setPetName(e.target.value)}

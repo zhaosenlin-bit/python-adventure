@@ -741,6 +741,8 @@ function NumberInput({
     <div>
       <label className="block text-xs text-gray-400 mb-1">{label}</label>
       <input
+        id="property-value"
+        name="propertyValue"
         type="number"
         value={value}
         onChange={(e) => onChange(Number(e.target.value))}
@@ -765,6 +767,8 @@ function SelectInput({ label, value, options, onChange }: SelectInputProps) {
     <div>
       <label className="block text-xs text-gray-400 mb-1">{label}</label>
       <select
+        id="property-type"
+        name="propertyType"
         value={value}
         onChange={(e) => onChange(e.target.value)}
         className="w-full px-2 py-1.5 bg-black/30 border border-yellow-600/30 rounded text-sm text-white focus:outline-none focus:border-yellow-500"
@@ -791,6 +795,8 @@ function TextInput({ label, value, onChange, placeholder }: TextInputProps) {
     <div>
       <label className="block text-xs text-gray-400 mb-1">{label}</label>
       <input
+        id="property-text"
+        name="propertyText"
         type="text"
         value={value}
         onChange={(e) => onChange(e.target.value)}

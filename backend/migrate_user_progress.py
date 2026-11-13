@@ -15,8 +15,11 @@ import os
 import json
 import sys
 
-# 数据库路径
-DB_PATH = os.path.join(os.path.dirname(__file__), "code_adventure.db")
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from app.core.database import require_sqlite_db_path
+
+# 数据库路径（统一来自 settings.DATABASE_URL）
+DB_PATH = require_sqlite_db_path()
 
 def migrate_user_progress():
     """迁移用户战役进度到年龄分组格式"""

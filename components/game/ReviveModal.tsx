@@ -139,7 +139,7 @@ export default function ReviveModal({ isOpen, livesRemaining, onRevive }: Revive
                   </div>
                 )}
                 {question.type === 'fill' && (
-                  <input type="text" value={userInput} onChange={e => setUserInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && submit()}
+                  <input id="revive-answer" name="reviveAnswer" type="text" value={userInput} onChange={e => setUserInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && submit()}
                     placeholder="请输入答案..." className="w-full p-3 bg-slate-700 text-white rounded-lg border-2 border-slate-600 focus:border-blue-400 focus:outline-none" autoFocus />
                 )}
                 {question.hint && (

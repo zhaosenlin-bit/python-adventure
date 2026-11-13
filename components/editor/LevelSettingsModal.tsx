@@ -269,6 +269,8 @@ export default function LevelSettingsModal({
               关卡名称 <span className="text-red-400">*</span>
             </label>
             <input
+              id="level-name"
+              name="levelName"
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -294,6 +296,8 @@ export default function LevelSettingsModal({
               关卡描述
             </label>
             <textarea
+              id="level-description"
+              name="levelDescription"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="描述你的关卡..."
@@ -341,6 +345,8 @@ export default function LevelSettingsModal({
                   宽度 ({MAP_DIMENSION_LIMITS.width.min}-{MAP_DIMENSION_LIMITS.width.max})
                 </label>
                 <input
+                  id="level-width"
+                  name="levelWidth"
                   type="number"
                   value={width}
                   onChange={(e) => handleWidthChange(e.target.value)}
@@ -364,6 +370,8 @@ export default function LevelSettingsModal({
                   高度 ({MAP_DIMENSION_LIMITS.height.min}-{MAP_DIMENSION_LIMITS.height.max})
                 </label>
                 <input
+                  id="level-height"
+                  name="levelHeight"
                   type="number"
                   value={height}
                   onChange={(e) => handleHeightChange(e.target.value)}

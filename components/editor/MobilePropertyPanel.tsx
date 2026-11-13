@@ -367,6 +367,8 @@ function MobileNumberInput({
     <div className="flex items-center gap-2 bg-black/30 rounded-lg p-2">
       <span className="text-xs text-gray-400 min-w-[24px]">{label}</span>
       <input
+        id="property-value-mobile"
+        name="propertyValue"
         type="number"
         value={value}
         onChange={(e) => onChange(Number(e.target.value))}
@@ -396,6 +398,8 @@ function MobileSelectInput({
     <div className="flex items-center gap-2 bg-black/30 rounded-lg p-2">
       <span className="text-xs text-gray-400 min-w-[40px]">{label}</span>
       <select
+        id="property-type-mobile"
+        name="propertyType"
         value={value}
         onChange={(e) => onChange(e.target.value)}
         className="flex-1 bg-transparent text-slate-300 text-sm outline-none"

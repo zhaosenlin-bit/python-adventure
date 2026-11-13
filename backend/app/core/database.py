@@ -149,6 +149,23 @@ def get_sqlite_db_path() -> str | None:
     return engine.url.database
 
 
+def require_sqlite_db_path() -> str:
+    """Return the absolute path of the configured SQLite database.
+
+    Scripts that open the database directly should use this instead of
+    hardcoding a filename: the path comes from ``DATABASE_URL``, so a
+    misconfigured ``.env`` fails loudly instead of silently creating an
+    empty database next to the script.
+    """
+    path = get_sqlite_db_path()
+    if not path:
+        raise RuntimeError(
+            "该脚本只支持 SQLite 数据库，当前 DATABASE_URL="
+            f"{settings.DATABASE_URL}"
+        )
+    return path
+
+
 def ensure_sqlite_schema_compatibility():
     """
     Lightweight SQLite compatibility repair:

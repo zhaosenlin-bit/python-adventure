@@ -54,11 +54,13 @@ export default function LoginForm({ onSwitchToRegister }: LoginFormProps) {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="mb-2 block text-sm font-pixel text-blue-400">
+            <label htmlFor="login-username" className="mb-2 block text-sm font-pixel text-blue-400">
               <User className="mr-2 inline h-4 w-4" />
               用户名
             </label>
             <input
+              id="login-username"
+              name="username"
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
@@ -70,11 +72,13 @@ export default function LoginForm({ onSwitchToRegister }: LoginFormProps) {
           </div>
 
           <div>
-            <label className="mb-2 block text-sm font-pixel text-blue-400">
+            <label htmlFor="login-password" className="mb-2 block text-sm font-pixel text-blue-400">
               <Lock className="mr-2 inline h-4 w-4" />
               密码
             </label>
             <input
+              id="login-password"
+              name="password"
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}

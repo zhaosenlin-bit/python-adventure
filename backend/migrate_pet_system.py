@@ -5,11 +5,15 @@
 import sqlite3
 import os
 import json
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from app.core.database import require_sqlite_db_path
 from app.core.time import utc_now_iso
 
 def migrate_pet_system():
     """创建宠物系统所需的数据库表"""
-    db_path = os.path.join(os.path.dirname(__file__), 'code_adventure.db')
+    db_path = require_sqlite_db_path()
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
     

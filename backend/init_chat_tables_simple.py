@@ -4,16 +4,11 @@
 import sqlite3
 import os
 
-# 数据库路径（与 app/core/database.py 保持一致）
-DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "code_adventure.db")
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from app.core.database import require_sqlite_db_path
 
-# 如果在 backend 目录下运行，调整路径
-if not os.path.exists(DB_PATH):
-    DB_PATH = os.path.join(os.path.dirname(__file__), "..", "code_adventure.db")
-if not os.path.exists(DB_PATH):
-    DB_PATH = "code_adventure.db"
-if not os.path.exists(DB_PATH):
-    DB_PATH = "../code_adventure.db"
+# 数据库路径（统一来自 settings.DATABASE_URL，不再靠猜相对路径）
+DB_PATH = require_sqlite_db_path()
 
 print(f"数据库路径: {DB_PATH}")
 

@@ -1,6 +1,7 @@
 """
 添加渐进式解锁的教学内容到地图
 """
+import os
 import sys
 sys.path.append('.')
 
@@ -16,7 +17,9 @@ def init_progressive_content():
     
     try:
         # 清除现有的puzzle和task类型的对象
-        db.query(MapObject).filter(MapObject.object_type.in_(['puzzle', 'task'])).delete()
+        # （SEED_SKIP_CLEAR=1 时跳过，由 seed_all.py 统一管理清理顺序）
+        if not os.getenv("SEED_SKIP_CLEAR"):
+            db.query(MapObject).filter(MapObject.object_type.in_(['puzzle', 'task'])).delete()
         
         # ===================
         # 编程基础系列（1-5级）

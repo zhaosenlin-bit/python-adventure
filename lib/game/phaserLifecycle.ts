@@ -2,7 +2,7 @@ import type * as Phaser from 'phaser';
 
 type PhaserGameHandle = Pick<Phaser.Game, 'destroy'>;
 
-function clearPhaserContainer(parent: HTMLElement | null | undefined): void {
+export function clearPhaserContainer(parent: HTMLElement | null | undefined): void {
   if (!parent) {
     return;
   }
