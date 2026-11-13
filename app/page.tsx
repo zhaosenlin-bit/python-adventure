@@ -26,6 +26,7 @@ import CoinHistory from "@/components/ui/CoinHistory";
 import NewUserGuide, { shouldShowNewUserGuide } from "@/components/ui/NewUserGuide";
 import DailyCheckIn from "@/components/pet/DailyCheckIn";
 import AchievementPanel from "@/components/pet/AchievementPanel";
+import { showErrorToast } from "@/components/ui/ErrorToast";
 
 type ViewState = 'home' | 'map' | 'level';
 const AI_RESEARCH_URL = "https://research.google/ai-quests/intl/en_us/quest/market-marshes";

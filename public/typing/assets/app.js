@@ -802,6 +802,28 @@
     return Math.floor(Date.now() / 1000);
   }
 
+  // 浏览器会检查「表单控件必须有 id 或 name」，缺一个就报一条问题。
+  // 模板里已经给主要控件写好了 name，这里再兜一遍底，
+  // 保证以后新增控件时也不会漏掉。
+  function ensureFormFieldSemantics() {
+    const fields = app.querySelectorAll("input, select, textarea");
+    fields.forEach((field, index) => {
+      if (!field.getAttribute("name")) {
+        const key =
+          field.getAttribute("data-bind") ||
+          field.getAttribute("data-setting") ||
+          field.getAttribute("data-setting-number") ||
+          field.getAttribute("data-action") ||
+          field.getAttribute("type") ||
+          field.tagName.toLowerCase();
+        field.setAttribute("name", `typing-${key.toLowerCase()}-${index}`);
+      }
+      if (!field.id) {
+        field.id = `typing-field-${index}`;
+      }
+    });
+  }
+
   function render() {
     try {
       document.body.classList.toggle("dark", Boolean(state.settings.darkMode));
@@ -823,6 +845,7 @@
           ${typeof renderFooter === "function" ? renderFooter() : ""}
         </div>
       `;
+      ensureFormFieldSemantics();
       restoreFocus(activeBind, activeSelection);
       afterRender();
     } catch (error) {
@@ -1116,7 +1139,7 @@
       const title = html(game.title);
       return `
         <a class="card home-game-card home-game-card-${color}" href="${link(`/games/${game.id}`)}">
-          <div class="home-game-card-cover">${imgSrc ? `<img src="${html(imgSrc)}" alt="${title}" loading="lazy">` : ""}<span class="home-game-card-badge">${html(badge)}</span></div>
+          <div class="home-game-card-cover">${imgSrc ? `<img src="${html(imgSrc)}" alt="${title}" width="640" height="400" loading="lazy">` : ""}<span class="home-game-card-badge">${html(badge)}</span></div>
           <div class="home-game-card-body"><h3>${title}</h3><p class="muted">${html((game.tags || []).slice(0, 2).join(" · "))}</p></div>
         </a>`;
     }).join("");
@@ -1232,8 +1255,8 @@
             .join("")}
         </div>
         <div class="search-row">
-          <input class="field" data-bind="search" value="${html(state.search)}" placeholder="搜索课时或课程名">
-          <select class="field" data-action="jump-category">
+          <input class="field" name="search" aria-label="搜索课程" data-bind="search" value="${html(state.search)}" placeholder="搜索课时或课程名">
+          <select class="field" name="jump-category" aria-label="课程分类" data-action="jump-category">
             ${(state.catalog.categories || [])
               .filter((item) => state.catalog.courseGroups?.[String(item.category_id)]?.length)
               .map((item) => `<option value="${item.category_id}" ${String(item.category_id) === String(categoryId) ? "selected" : ""}>${html(item.title)}</option>`)
@@ -1508,7 +1531,7 @@
       `;
     }
     return `
-      <textarea class="typing-input training-input" data-bind="trainer-input" lang="zh-CN" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="点击这里或按键开始，中文输入法可直接上屏..." ${trainer.finished ? "readonly" : ""}>${html(trainer.input)}</textarea>
+      <textarea class="typing-input training-input" name="trainer-input" aria-label="练习输入框" data-bind="trainer-input" lang="zh-CN" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="点击这里或按键开始，中文输入法可直接上屏..." ${trainer.finished ? "readonly" : ""}>${html(trainer.input)}</textarea>
     `;
   }
 
@@ -1583,7 +1606,7 @@
   }
 
   function renderHanziCellEditor(index) {
-    return `<input class="hanzi-cell-editor" data-bind="trainer-cell-input" data-index="${index}" value="" lang="zh-CN" inputmode="text" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="当前方格输入">`;
+    return `<input class="hanzi-cell-editor" name="trainer-cell-${index}" aria-label="当前汉字输入" data-bind="trainer-cell-input" data-index="${index}" value="" lang="zh-CN" inputmode="text" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="当前方格输入">`;
   }
 
   function displayHanziCell(value) {
@@ -1651,7 +1674,7 @@
               <button class="${state.speechLoopTimer ? "solid-button" : "ghost-button"}" data-action="toggle-loop-speech">循环发音</button>
               ${dictation ? `<button class="ghost-button" data-action="reveal-word">${trainer.revealAnswer ? "隐藏答案" : "显示答案"}</button>` : ""}
             </div>
-            <input class="word-input" data-bind="trainer-input" value="${html(trainer.input)}" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="${dictation ? "听朗读和看释义默写单词" : "输入当前单词"}" ${trainer.finished ? "readonly" : ""}>
+            <input class="word-input" name="trainer-input" aria-label="练习输入框" data-bind="trainer-input" value="${html(trainer.input)}" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="${dictation ? "听朗读和看释义默写单词" : "输入当前单词"}" ${trainer.finished ? "readonly" : ""}>
           </div>
           <div class="training-status">
             <span>时间：<strong>${formatClock(metrics.elapsed)}</strong></span>
@@ -1925,7 +1948,7 @@
             return `
               <label class="${checked ? "is-on" : "is-off"}">
                 <span>${html(label)}</span>
-                <input type="checkbox" data-setting="${key}" ${checked ? "checked" : ""}>
+                <input type="checkbox" name="setting-${key}" data-setting="${key}" ${checked ? "checked" : ""}>
                 <i>${checked ? "开" : "关"}</i>
               </label>
             `;
@@ -2033,7 +2056,7 @@ ${renderSpeedTestLeaderboardPanel()}
     return `
       <section class="game-page-hero">
         <div class="game-page-hero-deco" aria-hidden="true">
-          <img class="game-page-hero-mascot" src="data/assets/lexq/game-mascot.png" alt="" loading="lazy">
+          <img class="game-page-hero-mascot" src="data/assets/lexq/game-mascot.png" alt="" width="370" height="300" loading="lazy">
         </div>
         <div class="game-page-hero-copy">
           <h1>边玩边把手指练热</h1>
@@ -2087,7 +2110,7 @@ ${renderSpeedTestLeaderboardPanel()}
     return `
       <a class="game-card game-card-${color}" role="button" href="${href}" aria-label="进入${html(game.title)}游戏">
         <div class="game-card-cover">
-          ${imgSrc ? `<img src="${html(imgSrc)}" alt="${html(game.title)}游戏封面" loading="lazy">` : ""}
+          ${imgSrc ? `<img src="${html(imgSrc)}" alt="${html(game.title)}游戏封面" width="640" height="400" loading="lazy">` : ""}
           <span class="game-card-badge">${html(badge)}</span>
           <span class="game-card-play" aria-hidden="true">
             <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18"><path d="M8 5v14l11-7z"/></svg>
@@ -2308,9 +2331,9 @@ ${renderGameLeaderboardPanel()}
   }
   function renderGameInputArea(g, raceMode) {
     if (raceMode) {
-      return `<textarea class="field game-input race-input" data-bind="game-input" data-input-epoch="${g.inputEpoch || 0}" lang="zh-CN" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="照着下方文字输入，系统会即时标红错字" ${!g.running || g.finished ? "disabled" : ""}>${html(g.input)}</textarea>`;
+      return `<textarea class="field game-input race-input" name="game-input" aria-label="游戏输入框" data-bind="game-input" data-input-epoch="${g.inputEpoch || 0}" lang="zh-CN" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="照着下方文字输入，系统会即时标红错字" ${!g.running || g.finished ? "disabled" : ""}>${html(g.input)}</textarea>`;
     }
-    return `<input class="field game-input" data-bind="game-input" data-input-epoch="${g.inputEpoch || 0}" value="${html(g.input)}" lang="zh-CN" inputmode="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="输入目标后自动命中，中文可直接输入" ${!g.running || g.finished ? "disabled" : ""}>`;
+    return `<input class="field game-input" name="game-input" aria-label="游戏输入框" data-bind="game-input" data-input-epoch="${g.inputEpoch || 0}" value="${html(g.input)}" lang="zh-CN" inputmode="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="输入目标后自动命中，中文可直接输入" ${!g.running || g.finished ? "disabled" : ""}>`;
   }
 
   function renderGameFinishCard(g) {
@@ -2958,7 +2981,7 @@ ${renderGameLeaderboardPanel()}
         <aside class="panel contest-settings-panel">
           <h3>比赛设置</h3>
           <label class="tiny">选择文章</label>
-          <select class="field" data-action="contest-lesson">${lessonOptions}</select>
+          <select class="field" name="contest-lesson" aria-label="比赛课程" data-action="contest-lesson">${lessonOptions}</select>
           <div class="tag-row" style="margin-top:12px">
             <button class="solid-button" data-action="contest-ready">${contest.ready ? "取消准备" : "准备就绪"}</button>
             <button class="ghost-button" data-action="contest-leave">退出</button>
@@ -2972,7 +2995,7 @@ ${renderGameLeaderboardPanel()}
           </div>
           <div class="lobby-roomcode-panel" ${contest.mode === "join" ? "" : "hidden"}>
             <p class="tiny">输入房间码：</p>
-            <input class="field" data-bind="contest-roomcode" placeholder="6 位房间码" maxlength="6" value="${html(contest.joinInput || "")}" />
+            <input class="field" name="contest-roomcode" aria-label="比赛房间号" data-bind="contest-roomcode" placeholder="6 位房间码" maxlength="6" value="${html(contest.joinInput || "")}" />
             <button class="ghost-button tiny" data-action="contest-join-room" style="margin-top:8px">加入</button>
           </div>
           <p class="tiny muted" style="margin-top:12px">对手凑齐或房主点击开始后，3 秒倒计时即开始比赛。</p>
@@ -3021,7 +3044,7 @@ ${renderGameLeaderboardPanel()}
         <section class="panel contest-main-panel">
           <div class="game-hud" data-contest-hud>${renderContestHud(contest)}</div>
           <div class="typing-target contest-target" data-contest-target>${contest.text ? renderTargetText(contest.text, contest.input) : "请选择文章并开始比赛。"}</div>
-          <textarea class="typing-input contest-input" data-bind="contest-input" lang="zh-CN" autocomplete="off" spellcheck="false" ${!contest.running || contest.finished ? "readonly" : ""} placeholder="比赛开始后输入，中文输入法可直接上屏...">${html(contest.input)}</textarea>
+          <textarea class="typing-input contest-input" name="contest-input" aria-label="比赛输入框" data-bind="contest-input" lang="zh-CN" autocomplete="off" spellcheck="false" ${!contest.running || contest.finished ? "readonly" : ""} placeholder="比赛开始后输入，中文输入法可直接上屏...">${html(contest.input)}</textarea>
         </section>
       </div>
     `;
@@ -3599,6 +3622,8 @@ ${renderGameLeaderboardPanel()}
   function fallbackCopy(text) {
     try {
       const ta = document.createElement("textarea");
+      ta.setAttribute("name", "copy-buffer");
+      ta.setAttribute("aria-hidden", "true");
       ta.value = text;
       document.body.appendChild(ta);
       ta.select();
@@ -3805,15 +3830,15 @@ ${renderGameLeaderboardPanel()}
             <div><strong>${html(currentUsername())}</strong><span class="tiny">${html(state.session.source || "school")} · ${state.apiOnline ? "数据已同步" : "练习模式"}</span></div>
             <div class="tiny">Token：${state.session.token ? html(`${state.session.token.slice(0, 12)}...`) : "未导入登录态"}</div>
           </div>
-          <input class="field" data-bind="profile-name" value="${html(state.profile.nickname)}" placeholder="昵称">
+          <input class="field" name="profile-name" aria-label="昵称" data-bind="profile-name" value="${html(state.profile.nickname)}" placeholder="昵称">
           <div class="settings-grid" style="margin-top:12px">
-            <label>深色模式 <input type="checkbox" data-setting="darkMode" ${state.settings.darkMode ? "checked" : ""}></label>
-            <label>键盘提示 <input type="checkbox" data-setting="showKeyboard" ${state.settings.showKeyboard ? "checked" : ""}></label>
-            <label>按键音 <input type="checkbox" data-setting="keyAudio" ${state.settings.keyAudio ? "checked" : ""}></label>
-            <label>完成音 <input type="checkbox" data-setting="completeAudio" ${state.settings.completeAudio ? "checked" : ""}></label>
-            <label>朗读语音 <input type="checkbox" data-setting="speechAudio" ${state.settings.speechAudio ? "checked" : ""}></label>
-            <label>循环朗读 <input type="checkbox" data-setting="loopSpeech" ${state.settings.loopSpeech ? "checked" : ""}></label>
-            <label>朗读速度 <input type="range" min="0.55" max="1.4" step="0.05" data-setting-number="speechRate" value="${Number(state.settings.speechRate || 0.9)}"></label>
+            <label>深色模式 <input type="checkbox" name="setting-darkMode" data-setting="darkMode" ${state.settings.darkMode ? "checked" : ""}></label>
+            <label>键盘提示 <input type="checkbox" name="setting-showKeyboard" data-setting="showKeyboard" ${state.settings.showKeyboard ? "checked" : ""}></label>
+            <label>按键音 <input type="checkbox" name="setting-keyAudio" data-setting="keyAudio" ${state.settings.keyAudio ? "checked" : ""}></label>
+            <label>完成音 <input type="checkbox" name="setting-completeAudio" data-setting="completeAudio" ${state.settings.completeAudio ? "checked" : ""}></label>
+            <label>朗读语音 <input type="checkbox" name="setting-speechAudio" data-setting="speechAudio" ${state.settings.speechAudio ? "checked" : ""}></label>
+            <label>循环朗读 <input type="checkbox" name="setting-loopSpeech" data-setting="loopSpeech" ${state.settings.loopSpeech ? "checked" : ""}></label>
+            <label>朗读速度 <input type="range" name="setting-speechRate" min="0.55" max="1.4" step="0.05" data-setting-number="speechRate" value="${Number(state.settings.speechRate || 0.9)}"></label>
           </div>
         </section>
         <section class="panel">
@@ -3855,8 +3880,8 @@ ${renderGameLeaderboardPanel()}
       </section>
       <div class="trainer-layout">
         <section class="panel">
-          <input class="field" data-bind="custom-title" placeholder="课程标题">
-          <textarea class="textarea" data-bind="custom-text" placeholder="输入或粘贴要练习的内容"></textarea>
+          <input class="field" name="custom-title" aria-label="课程名称" data-bind="custom-title" placeholder="课程标题">
+          <textarea class="textarea" name="custom-text" aria-label="练习内容" data-bind="custom-text" placeholder="输入或粘贴要练习的内容"></textarea>
           <div class="tag-row" style="margin-top:12px">
             <button class="solid-button" data-action="save-custom">保存课程</button>
           </div>

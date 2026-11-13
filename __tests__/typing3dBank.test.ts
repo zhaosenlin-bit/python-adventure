@@ -1,3 +1,6 @@
+import { readFileSync } from "fs";
+import { join } from "path";
+
 import {
     dateKeyFor,
     hashString,
@@ -12,6 +15,8 @@ import {
     selectDailyQuestions,
     shuffle,
     targetFor,
+    tierForIndex,
+    TYPING3D_DAILY_COUNT,
 } from "@/lib/typing3d/bank";
 import type { Typing3DItem } from "@/lib/typing3d/types";
 
@@ -195,5 +200,88 @@ describe("答案判定", () => {
         expect(normalizerFor(toned, "pinyin")).toBe(normalizePinyin);
         expect(normalizerFor(toned, "hanzi")).toBe(normalizeTyped);
         expect(normalizerFor(english, "pinyin")).toBe(normalizeTyped);
+    });
+});
+
+
+describe("难度配额", () => {
+    it("难度曲线单调：越往后越难，三档都会出现", () => {
+        const tiers = Array.from({ length: TYPING3D_DAILY_COUNT }, (_, index) =>
+            tierForIndex(index, TYPING3D_DAILY_COUNT),
+        );
+        expect(tiers).toEqual([...tiers].sort((left, right) => left - right));
+        expect(tiers[0]).toBe(1);
+        expect(tiers[tiers.length - 1]).toBe(3);
+        expect(new Set(tiers).size).toBe(3);
+    });
+
+    it("每档保底有英文题，代码 / 符号题不超上限", () => {
+        const bank: Typing3DItem[] = [];
+        for (let index = 0; index < 40; index += 1) {
+            bank.push({ text: `easy-${index}`, kind: "en", tier: 1 });
+            bank.push({ text: `middle-${index}`, kind: "en", tier: 2 });
+            bank.push({ text: `hard-${index}`, kind: "en", tier: 3 });
+            bank.push({ text: `code-${index}`, kind: "code", tier: 3 });
+            bank.push({ text: `symbol-${index}`, kind: "sym", tier: 3 });
+            bank.push({ text: `中文-${index}`, kind: "zh", tier: 1 });
+        }
+        const questions = selectDailyQuestions(bank, "20261113", 12);
+        const perTier: Record<number, Typing3DItem[]> = { 1: [], 2: [], 3: [] };
+        for (const question of questions) {
+            perTier[question.item.tier].push(question.item);
+        }
+        for (const tier of [1, 2, 3]) {
+            const picks = perTier[tier];
+            expect(picks.length).toBeGreaterThan(0);
+            const english = picks.filter((item) => item.kind === "en").length;
+            const coded = picks.filter(
+                (item) => item.kind === "code" || item.kind === "sym",
+            ).length;
+            expect(english).toBeGreaterThanOrEqual(1);
+            expect(coded).toBeLessThanOrEqual(Math.floor(picks.length * 0.25));
+        }
+    });
+
+    it("某档没有英文题时不会硬凑，也不报错", () => {
+        const bank: Typing3DItem[] = [];
+        for (let index = 0; index < 10; index += 1) {
+            bank.push({ text: `中文-${index}`, kind: "zh", tier: 1 });
+            bank.push({ text: `中文二-${index}`, kind: "zh", tier: 2 });
+            bank.push({ text: `中文三-${index}`, kind: "zh", tier: 3 });
+        }
+        const questions = selectDailyQuestions(bank, "20261113", 6);
+        expect(questions).toHaveLength(6);
+        expect(questions.every((question) => question.item.kind === "zh")).toBe(true);
+    });
+
+    it("真实题库：当天 24 题、难度递增、英文够多、代码不超上限", () => {
+        const raw = JSON.parse(
+            readFileSync(
+                join(process.cwd(), "public", "typing", "data", "typing3d-bank.json"),
+                "utf-8",
+            ),
+        );
+        const items = parseBank(raw);
+        expect(items.length).toBeGreaterThanOrEqual(200);
+
+        const questions = selectDailyQuestions(items, "20261113");
+        expect(questions).toHaveLength(TYPING3D_DAILY_COUNT);
+
+        const tiers = questions.map((question) => question.item.tier);
+        expect(tiers).toEqual([...tiers].sort((left, right) => left - right));
+
+        const english = questions.filter((question) => question.item.kind === "en").length;
+        expect(english).toBeGreaterThanOrEqual(6);
+
+        const coded = questions.filter(
+            (question) => question.item.kind === "code" || question.item.kind === "sym",
+        ).length;
+        expect(coded).toBeLessThanOrEqual(6);
+
+        // 当天固定
+        const again = selectDailyQuestions(items, "20261113");
+        expect(again.map((question) => question.item.text)).toEqual(
+            questions.map((question) => question.item.text),
+        );
     });
 });

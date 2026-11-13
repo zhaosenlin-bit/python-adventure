@@ -12,6 +12,30 @@ export const TYPING3D_BANK_URL = "/typing/data/typing3d-bank.json";
 /** 一天闯几关。 */
 export const TYPING3D_DAILY_COUNT = 24;
 
+/** 每个难度档里至少要有多少英文题（题池不够时按实际数量给）。 */
+const TIER_MIN_ENGLISH_RATIO = 0.35;
+
+/** 每个难度档里代码 / 符号题最多占多少，免得「困难」档其实全是代码。 */
+const TIER_MAX_CODE_RATIO = 0.25;
+
+/**
+ * 难度曲线：越往后越难。
+ *
+ * 两道分界线会随着进度一起往后收 —— 开局以简单题为主，中段用中等题过渡，
+ * 收尾集中上困难题。返回第 index 关该用哪一档（1 简单 / 2 中等 / 3 困难）。
+ *
+ * 分界线单调收缩，所以分出来的三段一定是「先简单、再中等、最后困难」，
+ * 不会出现难度来回跳。
+ */
+export function tierForIndex(index: number, count: number): Typing3DTier {
+    const progress = (index + 0.5) / Math.max(1, count);
+    const firstBoundary = 0.5 - 0.35 * progress;
+    const secondBoundary = 0.8 - 0.3 * progress;
+    if (progress < firstBoundary) return 1;
+    if (progress < secondBoundary) return 2;
+    return 3;
+}
+
 /** 32 位随机数发生器（mulberry32），同样的种子永远得到同样的顺序。 */
 export function mulberry32(seed: number): () => number {
     let state = seed >>> 0;
@@ -76,8 +100,11 @@ export function shuffle<T>(values: T[], random: () => number): T[] {
 /**
  * 选出今天要闯的关卡。
  *
- * 规则：先按难度分档（短 -> 中 -> 长），每档内随机但当天固定；
- * 某一档不够时用剩下的题补齐，保证每天都有足量的关卡。
+ * 规则：
+ * 1. 难度按关卡推进递增（简单 -> 中等 -> 困难），当天固定，跨天自动换新；
+ * 2. 每档保底留一些英文题，别让「困难」档其实全是代码片段；
+ * 3. 代码 / 符号题每档限量；
+ * 4. 题库不够时用剩下的题补齐，保证每天都有足量的关卡。
  */
 export function selectDailyQuestions(
     items: Typing3DItem[],
@@ -87,24 +114,59 @@ export function selectDailyQuestions(
     if (!items.length || count <= 0) return [];
 
     const random = mulberry32(hashString(`typing3d:${dateKey}`));
-    const buckets: Record<Typing3DTier, Typing3DItem[]> = { 1: [], 2: [], 3: [] };
+
+    // 每档再拆成三个池子：英文、中文、代码 / 符号。
+    const pools: Record<
+        Typing3DTier,
+        { en: Typing3DItem[]; zh: Typing3DItem[]; code: Typing3DItem[] }
+    > = {
+        1: { en: [], zh: [], code: [] },
+        2: { en: [], zh: [], code: [] },
+        3: { en: [], zh: [], code: [] },
+    };
     for (const item of items) {
-        buckets[item.tier].push(item);
+        const bucket = pools[item.tier];
+        if (item.kind === "en") bucket.en.push(item);
+        else if (item.kind === "code" || item.kind === "sym") bucket.code.push(item);
+        else bucket.zh.push(item);
     }
 
-    const shuffled: Record<Typing3DTier, Typing3DItem[]> = {
-        1: shuffle(buckets[1], random),
-        2: shuffle(buckets[2], random),
-        3: shuffle(buckets[3], random),
-    };
+    // 按难度曲线先算出每档要几关（简单 / 中等 / 困难各多少题）。
+    const quotas: Record<Typing3DTier, number> = { 1: 0, 2: 0, 3: 0 };
+    for (let index = 0; index < count; index += 1) {
+        quotas[tierForIndex(index, count)] += 1;
+    }
 
     const picked: Typing3DItem[] = [];
-    const perTier = Math.ceil(count / 3);
     for (const tier of [1, 2, 3] as Typing3DTier[]) {
-        picked.push(...shuffled[tier].slice(0, perTier));
+        const quota = quotas[tier];
+        if (quota <= 0) continue;
+        const bucket = pools[tier];
+        let english = shuffle(bucket.en, random);
+        let chinese = shuffle(bucket.zh, random);
+        let coded = shuffle(bucket.code, random);
+
+        let remaining = quota;
+        const tierPicks: Typing3DItem[] = [];
+        /** 从池子里取题，已经取走的部分从池子里去掉，免得同一题出现两次。 */
+        const take = (pool: Typing3DItem[], wanted: number): Typing3DItem[] => {
+            const amount = Math.max(0, Math.min(wanted, pool.length, remaining));
+            tierPicks.push(...pool.slice(0, amount));
+            remaining -= amount;
+            return pool.slice(amount);
+        };
+
+        // 英文保底 -> 代码限量 -> 中文补齐；某一类不够就换下一类补。
+        english = take(english, Math.max(1, Math.round(quota * TIER_MIN_ENGLISH_RATIO)));
+        coded = take(coded, Math.floor(quota * TIER_MAX_CODE_RATIO));
+        chinese = take(chinese, remaining);
+        english = take(english, remaining);
+        coded = take(coded, remaining);
+
+        picked.push(...tierPicks);
     }
 
-    // 某档不够就拿剩下的补
+    // 某档不够就拿剩下的题补齐
     if (picked.length < count) {
         const used = new Set(picked);
         const rest = shuffle(
@@ -113,6 +175,9 @@ export function selectDailyQuestions(
         );
         picked.push(...rest.slice(0, count - picked.length));
     }
+
+    // 按难度排一遍，保证关卡越往后越难（补题时也不会打乱顺序）。
+    picked.sort((left, right) => left.tier - right.tier);
 
     return picked.slice(0, count).map((item, index) => ({ index, item }));
 }

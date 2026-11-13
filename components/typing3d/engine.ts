@@ -35,6 +35,10 @@ const ACCELERATION = 12;
 const PANEL_REACH = 3.4;
 const CAMERA_DISTANCE = 8.2;
 const CAMERA_HEIGHT = 5.4;
+/** 相机收敛速度：每秒能追上多少比例的差距。
+ * 用「每秒比例」而不是「每帧比例」，帧率掉了镜头速度才不会跟着变慢。 */
+const CAMERA_FOLLOW_RATE = 10;
+const CAMERA_OVERVIEW_RATE = 5;
 
 /** 画质阶梯：卡得厉害就一档一档往下调，只降不升，免得来回抖。 */
 const PIXEL_RATIO_LADDER = [1.75, 1.25, 1, 0.7];
@@ -201,19 +205,43 @@ function paintPanelTexture(
         context.textAlign = "center";
         context.textBaseline = "middle";
 
+        // 左上角的「打字」标记：远远就能认出这是答题面板。
+        // 字号给到 60px（占画面高度五分之一），再垫一层深色底 + 发光边，
+        // 站在房间另一头也能一眼认出，不会只剩一个模糊的方块。
+        context.save();
+        context.textAlign = "left";
+        context.textBaseline = "middle";
+        context.font = '700 60px "Microsoft YaHei", "PingFang SC", "Noto Sans SC", sans-serif';
+        const badgeText = "打字";
+        const badgeWidth = context.measureText(badgeText).width + 52;
+        const badgeHeight = 88;
+        context.shadowColor = solved ? "rgba(141,255,192,0.85)" : "rgba(126,249,228,0.8)";
+        context.shadowBlur = 26;
+        roundRectPath(context, 30, 16, badgeWidth, badgeHeight, 18);
+        context.fillStyle = solved ? "rgba(20,86,58,0.92)" : "rgba(10,38,52,0.92)";
+        context.fill();
+        context.shadowBlur = 0;
+        roundRectPath(context, 30, 16, badgeWidth, badgeHeight, 18);
+        context.strokeStyle = solved ? "rgba(141,255,192,0.95)" : "rgba(126,249,228,0.9)";
+        context.lineWidth = 4;
+        context.stroke();
+        context.fillStyle = solved ? "#8dffc0" : "#9ef7e6";
+        context.fillText(badgeText, 56, 60);
+        context.restore();
+
         const showPinyin = item.kind === "zh" && Boolean(item.pinyin);
         const mainText = pinyinMode && showPinyin ? (item.pinyin as string) : item.text;
         const fontSize = mainText.length > 14 ? 60 : mainText.length > 9 ? 74 : 92;
 
         context.fillStyle = solved ? "#8dffc0" : "#ffffff";
         context.font = `600 ${fontSize}px "Microsoft YaHei", "PingFang SC", "Noto Sans SC", sans-serif`;
-        context.fillText(mainText, canvas.width / 2, showPinyin ? 116 : 140, 940);
+        context.fillText(mainText, canvas.width / 2, 168, 940);
 
         if (showPinyin) {
             context.fillStyle = solved ? "#63e8a2" : "#86f7e6";
             context.font = '400 44px "Segoe UI", "Microsoft YaHei", sans-serif';
             const hint = pinyinMode ? item.text : (item.pinyin as string);
-            context.fillText(hint, canvas.width / 2, 206, 900);
+            context.fillText(hint, canvas.width / 2, 240, 900);
         }
 
         context.fillStyle = "rgba(200,215,245,0.9)";
@@ -221,25 +249,8 @@ function paintPanelTexture(
         context.fillText(
             `${KIND_LABEL[item.kind]} · 难度 ${"★".repeat(item.tier)}`,
             canvas.width / 2,
-            266,
+            292,
         );
-
-        // 左上角的「打字」标记：远远就能认出这是答题面板
-        context.save();
-        context.textAlign = "left";
-        context.textBaseline = "middle";
-        context.font = '600 34px "Microsoft YaHei", "PingFang SC", "Noto Sans SC", sans-serif';
-        const badgeText = "打字";
-        const badgeWidth = context.measureText(badgeText).width + 36;
-        roundRectPath(context, 24, 16, badgeWidth, 50, 12);
-        context.fillStyle = solved ? "rgba(141,255,192,0.16)" : "rgba(126,249,228,0.14)";
-        context.fill();
-        context.strokeStyle = solved ? "rgba(141,255,192,0.9)" : "rgba(126,249,228,0.85)";
-        context.lineWidth = 2;
-        context.stroke();
-        context.fillStyle = solved ? "#8dffc0" : "#9ef7e6";
-        context.fillText(badgeText, 42, 42);
-        context.restore();
     }
     const texture = new THREE.CanvasTexture(canvas);
     texture.colorSpace = THREE.SRGBColorSpace;
@@ -1067,12 +1078,12 @@ export class Typing3DEngine {
         }
     }
 
-    private updateCamera(): void {
+    private updateCamera(delta: number): void {
         const layout = this.layout;
         if (!layout) return;
 
         if (this.overviewMode) {
-            this.updateOverviewCamera();
+            this.updateOverviewCamera(delta);
             return;
         }
 
@@ -1121,13 +1132,13 @@ export class Typing3DEngine {
         desired.x = Math.max(-halfWidth, Math.min(halfWidth, desired.x));
         desired.z = Math.max(-halfDepth, Math.min(halfDepth, desired.z));
 
-        this.camera.position.lerp(desired, 0.16);
+        this.camera.position.lerp(desired, Math.min(1, delta * CAMERA_FOLLOW_RATE));
         const focus = this.position.clone().setY(this.position.y + 1.2);
         this.camera.lookAt(focus);
     }
 
     /** 出生点选择：镜头拉到房间上方，所有光环一次看全。 */
-    private updateOverviewCamera(): void {
+    private updateOverviewCamera(delta: number): void {
         const options = this.spawnOptions;
         let minX = 0;
         let maxX = 0;
@@ -1150,7 +1161,7 @@ export class Typing3DEngine {
             distance * 0.58,
             centerZ - distance * 0.78,
         );
-        this.camera.position.lerp(desired, 0.08);
+        this.camera.position.lerp(desired, Math.min(1, delta * CAMERA_OVERVIEW_RATE));
         this.camera.lookAt(new THREE.Vector3(centerX, 0, centerZ));
     }
 
@@ -1244,7 +1255,7 @@ export class Typing3DEngine {
 
         this.checkPerformance(now);
         this.updateMovement(delta);
-        this.updateCamera();
+        this.updateCamera(delta);
         this.updateNearPanel();
         this.updateAnimations(delta, elapsed);
         this.checkDoor();
