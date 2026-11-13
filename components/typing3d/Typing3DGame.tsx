@@ -516,6 +516,23 @@ export default function Typing3DGame() {
         };
     }, [nearPanel, openTyping, layout]);
 
+    // 打字面板开着的时候焦点必须留在输入框上。用户点一下画面、点一下题目文字，
+    // 焦点就跑到 body 去了，之后按键全丢，表现为「打不了字」。
+    // 这里在捕获阶段把点击拦下来（按钮除外），把焦点抢回输入框。
+    useEffect(() => {
+        if (phase !== "typing") return;
+        const keepFocus = (event: PointerEvent) => {
+            const target = event.target as HTMLElement | null;
+            if (!target || target.closest("button")) return;
+            // 点输入框本身时交给浏览器默认行为，不然手机上软键盘可能弹不出来
+            if (target === inputRef.current) return;
+            event.preventDefault();
+            inputRef.current?.focus();
+        };
+        window.addEventListener("pointerdown", keepFocus, true);
+        return () => window.removeEventListener("pointerdown", keepFocus, true);
+    }, [phase]);
+
     // 把按键状态同步给引擎
     useEffect(() => {
         const timer = window.setInterval(() => {
@@ -757,19 +774,58 @@ export default function Typing3DGame() {
                             <div className="mb-4" />
                         )}
 
-                        <div className="rounded-xl border border-white/10 bg-black/30 px-4 py-3">
-                            <div className="flex min-h-[2rem] flex-wrap items-baseline gap-x-1 text-2xl font-mono">
+                        <div className="relative rounded-xl border border-white/10 bg-black/30 px-4 py-3">
+                            <label
+                                htmlFor="typing3d-answer"
+                                className="flex min-h-[2rem] cursor-text flex-wrap items-baseline gap-x-1 text-2xl font-mono"
+                            >
                                 {answerState === "wrong" ? (
                                     <span className="text-rose-300">{typed || "再试一次"}</span>
                                 ) : (
                                     <>
                                         <span className="text-teal-300">{typed}</span>
+                                        {answerState === "idle" && (
+                                            <span className="inline-block h-6 w-0.5 animate-pulse bg-teal-300 align-baseline" />
+                                        )}
                                         <span className="text-white/25">
                                             {remainingTarget(typed, currentQuestion, inputMode)}
                                         </span>
                                     </>
                                 )}
-                            </div>
+                            </label>
+                            {/* 真输入框直接铺在这个框上：点它就能聚焦，
+                                中文输入法的候选框也会弹在这个位置。文字画在下面，
+                                这样能同时显示「已输入 / 剩余」两种颜色。 */}
+                            <input
+                                id="typing3d-answer"
+                                name="typing3dAnswer"
+                                ref={inputRef}
+                                value={typed}
+                                onBlur={(event) => {
+                                    // 焦点不能丢：只有点到按钮上才放行，其余情况立刻拉回来
+                                    const next = event.relatedTarget as HTMLElement | null;
+                                    if (next?.closest("button")) return;
+                                    window.setTimeout(() => inputRef.current?.focus(), 0);
+                                }}
+                                onChange={(event) => {
+                                    setTyped(event.target.value);
+                                    // 开始改就撤掉「打错了」的标记
+                                    if (answerState === "wrong") setAnswerState("idle");
+                                }}
+                                onKeyDown={(event) => {
+                                    if (event.key !== "Enter") return;
+                                    if (
+                                        (event.nativeEvent as unknown as { isComposing?: boolean }).isComposing
+                                    ) {
+                                        return;
+                                    }
+                                    event.preventDefault();
+                                    handleSubmit();
+                                }}
+                                aria-label="打字输入框"
+                                data-testid="typing-3d-input"
+                                className="absolute inset-0 h-full w-full cursor-text opacity-0"
+                            />
                         </div>
 
                         <div className="mt-4 flex items-center justify-between gap-3 text-xs text-slate-400">
@@ -799,31 +855,6 @@ export default function Typing3DGame() {
                                 </button>
                             </div>
                         </div>
-
-                        <input
-                            id="typing3d-answer"
-                            name="typing3dAnswer"
-                            ref={inputRef}
-                            value={typed}
-                            onChange={(event) => {
-                                setTyped(event.target.value);
-                                // 开始改就撤掉「打错了」的标记
-                                if (answerState === "wrong") setAnswerState("idle");
-                            }}
-                            onKeyDown={(event) => {
-                                if (event.key !== "Enter") return;
-                                if (
-                                    (event.nativeEvent as unknown as { isComposing?: boolean }).isComposing
-                                ) {
-                                    return;
-                                }
-                                event.preventDefault();
-                                handleSubmit();
-                            }}
-                            aria-label="打字输入框"
-                            data-testid="typing-3d-input"
-                            className="pointer-events-none absolute h-px w-px opacity-0"
-                        />
                     </div>
                 </div>
             )}

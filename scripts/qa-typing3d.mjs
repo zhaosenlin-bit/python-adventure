@@ -139,6 +139,21 @@ async function main() {
         check("读到题目", Boolean(answer), answer.slice(0, 24));
         await page.screenshot({ path: path.join(OUT, "04-typing.png") });
 
+        // 回归：用户习惯性点一下那个「像输入框」的位置，焦点不能丢。
+        // 之前焦点会掉到 body，之后按键全丢，表现为「打不了字」。
+        const answerBox = await page.locator('label[for="typing3d-answer"]').boundingBox();
+        if (answerBox) {
+            await page.mouse.click(answerBox.x + 24, answerBox.y + answerBox.height / 2);
+            await page.keyboard.type("x", { delay: 20 });
+            await page.waitForTimeout(150);
+            const typed = await page.evaluate(
+                () => document.querySelector('[data-testid="typing-3d-input"]')?.value ?? "",
+            );
+            check("点过输入框位置后还能打字", typed === "x", `输入框内容「${typed}」`);
+            await page.keyboard.press("Backspace");
+            await page.waitForTimeout(120);
+        }
+
         await page.keyboard.type(answer, { delay: 12 });
         await page.waitForTimeout(200);
         await page.keyboard.press("Enter");

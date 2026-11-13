@@ -158,15 +158,34 @@ export function normalizerFor(
 }
 
 /** 输入是否已经和目标一致（完全正确）。 */
+export function acceptableTargets(
+    question: Typing3DQuestion,
+    mode: Typing3DInputMode,
+): { text: string; norm: (value: string) => string }[] {
+    const pinyin = question.item.pinyin;
+    const pinyinMode = mode === "pinyin" && question.item.kind === "zh" && Boolean(pinyin);
+    if (!pinyinMode || !pinyin) {
+        return [{ text: question.item.text, norm: normalizeTyped }];
+    }
+    // 拼音模式下中文也算对：用户开着中文输入法时，拼音会被输入法转成汉字，
+    // 输入框里已经是汉字了，那就是正确答案，不该因为「模式是拼音」被判错。
+    return [
+        { text: pinyin, norm: normalizePinyin },
+        { text: question.item.text, norm: normalizeTyped },
+    ];
+}
+
+/** 输入是否已经和目标一致（完全正确）。 */
 export function isAnswerCorrect(
     typed: string,
     question: Typing3DQuestion,
     mode: Typing3DInputMode,
 ): boolean {
-    const norm = normalizerFor(question, mode);
-    const left = norm(typed);
-    const right = norm(targetFor(question, mode));
-    return right.length > 0 && left === right;
+    return acceptableTargets(question, mode).some(({ text, norm }) => {
+        const left = norm(typed);
+        const right = norm(text);
+        return right.length > 0 && left === right;
+    });
 }
 
 /** 输入的前缀是否还对得上，用来实时给反馈。 */
@@ -175,8 +194,9 @@ export function prefixMatches(
     question: Typing3DQuestion,
     mode: Typing3DInputMode,
 ): boolean {
-    const norm = normalizerFor(question, mode);
-    return norm(targetFor(question, mode)).startsWith(norm(typed));
+    return acceptableTargets(question, mode).some(({ text, norm }) =>
+        norm(text).startsWith(norm(typed)),
+    );
 }
 
 /**
@@ -190,18 +210,19 @@ export function remainingTarget(
     question: Typing3DQuestion,
     mode: Typing3DInputMode,
 ): string {
-    const target = targetFor(question, mode);
-    const norm = normalizerFor(question, mode);
-    const typedNorm = norm(typed);
-    const targetNorm = norm(target);
-    if (!targetNorm.startsWith(typedNorm)) return target;
-    if (typedNorm.length >= targetNorm.length) return "";
-    // 逐字规范化，记录每个规范化字符对应原字符串里的位置
-    const map: number[] = [];
-    for (let index = 0; index < target.length; index += 1) {
-        const piece = norm(target[index]);
-        for (let offset = 0; offset < piece.length; offset += 1) map.push(index);
+    for (const { text, norm } of acceptableTargets(question, mode)) {
+        const typedNorm = norm(typed);
+        const targetNorm = norm(text);
+        if (!targetNorm.startsWith(typedNorm)) continue;
+        if (typedNorm.length >= targetNorm.length) return "";
+        // 逐字规范化，记录每个规范化字符对应原字符串里的位置
+        const map: number[] = [];
+        for (let index = 0; index < text.length; index += 1) {
+            const piece = norm(text[index]);
+            for (let offset = 0; offset < piece.length; offset += 1) map.push(index);
+        }
+        return text.slice(map[typedNorm.length] ?? text.length);
     }
-    return target.slice(map[typedNorm.length] ?? target.length);
+    return targetFor(question, mode);
 }
 

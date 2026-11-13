@@ -157,6 +157,15 @@ describe("答案判定", () => {
         expect(isAnswerCorrect("wei nan chao", toned, "hanzi")).toBe(false);
     });
 
+    it("拼音模式下直接打汉字也算对（中文输入法会把拼音转成汉字）", () => {
+        expect(isAnswerCorrect("你好", hanzi, "pinyin")).toBe(true);
+        expect(isAnswerCorrect("你好", hanzi, "hanzi")).toBe(true);
+        expect(prefixMatches("你", hanzi, "pinyin")).toBe(true);
+        expect(remainingTarget("你", hanzi, "pinyin")).toBe("好");
+        // 汉字模式只认汉字，拼音不算
+        expect(isAnswerCorrect("ni hao", hanzi, "hanzi")).toBe(false);
+    });
+
     it("英文题忽略大小写和空格", () => {
         expect(normalizeTyped("  Hello World ")).toBe("helloworld");
         expect(isAnswerCorrect("hello world", english, "hanzi")).toBe(true);
