@@ -1,11 +1,12 @@
 from contextlib import asynccontextmanager
 import logging
 import uuid
+from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse, Response
 
 from app.api.v1 import (
     achievements,
@@ -22,6 +23,7 @@ from app.api.v1 import (
     decorations,
     food,
     interactions,
+    launcher,
     leaderboard,
     learning_assistant,
     pets,
@@ -40,13 +42,40 @@ from app.core.config import settings
 from app.core.database import ensure_database_ready
 
 IS_PRODUCTION = settings.ENVIRONMENT.lower() == "production"
+
+# 浏览器打开任何页面都会自动请求 /favicon.ico，后端不提供的话每个页面
+# 都会在控制台报一条 404。这里直接复用前端 public/ 目录里的那份图标。
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+_FAVICON_PATH = _REPO_ROOT / "public" / "favicon.ico"
 QUIET_SUCCESS_REQUEST_LOGS = IS_PRODUCTION or not settings.DEBUG
 ensure_database_ready()
+
+
+def _log_optional_integrations() -> None:
+    """启动时汇总可选外部依赖的配置情况。
+
+    这些能力没配 key 时会自动降级，但降级是静默的，排查时很难发现。
+    这里在启动日志里明确列出来，避免「以为配好了其实没配」。
+    """
+    integrations = [
+        ("AI 出题 / 宠物聊天 (DeepSeek)", bool(settings.DEEPSEEK_API_KEY.strip())),
+        ("打字语音朗读 (MiniMax TTS)", bool(settings.MINIMAX_API_KEY.strip())),
+        ("语音朗读备选 (Qwen TTS)", bool((settings.QWEN_API_KEY or settings.DASHSCOPE_API_KEY).strip())),
+    ]
+    enabled = [name for name, ok in integrations if ok]
+    missing = [name for name, ok in integrations if not ok]
+
+    logger.info("可选功能已启用: %s", "、".join(enabled) if enabled else "无")
+    if missing:
+        logger.warning(
+            "未配置（相关功能会降级）：%s", "、".join(missing)
+        )
 
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     ensure_database_ready()
+    _log_optional_integrations()
     yield
 
 
@@ -55,8 +84,9 @@ app = FastAPI(
     description="Code Adventure Island Game API",
     version="1.0.0",
     lifespan=lifespan,
-    docs_url=None if IS_PRODUCTION else "/docs",
-    redoc_url=None if IS_PRODUCTION else "/redoc",
+    # 文档页走本地离线版（见下面的 /docs 路由），不依赖 swagger-ui 的 CDN
+    docs_url=None,
+    redoc_url=None,
     openapi_url=None if IS_PRODUCTION else "/openapi.json",
 )
 
@@ -65,6 +95,9 @@ app = FastAPI(
 _configured_origins = [origin.strip() for origin in settings.CORS_ORIGINS.split(",") if origin.strip()]
 _dev_local_origins = [
     "http://localhost:3000",
+    # "null" = 浏览器以 file:// 直接打开本地文档页时的来源，
+    # 放行它才能让那份页面读到 openapi.json 并试跑接口（仅开发环境）。
+    "null",
     "http://127.0.0.1:3000",
     "http://localhost:3003",
     "http://127.0.0.1:3003",
@@ -120,6 +153,65 @@ async def log_requests(request: Request, call_next):
     except Exception as exc:
         logger.error("Request failed: %s %s - %s - %s", request.method, request.url.path, request_id, exc)
         raise
+
+
+
+# /docs 的 HTML 里，表单控件必须同时带上 id 和 name，否则 Chrome 的问题面板会报
+# 「表单字段缺少 id 或 name 属性」。这段脚本统一补齐，对本地离线文档页和第三方组件都适用。
+_SWAGGER_FIELD_FIX_JS = """<script>
+(function () {
+  function fix() {
+    // Swagger UI 的表单控件（授权弹窗是点开才创建的）必须同时带上 id 和 name，
+    // 否则 Chrome 的问题面板会报「表单字段缺少 id 或 name 属性」。
+    var nodes = document.querySelectorAll('input, select, textarea');
+    var seq = 0;
+    for (var i = 0; i < nodes.length; i++) {
+      var el = nodes[i];
+      if (!el.id) {
+        seq++;
+        el.id = 'swagger-field-' + seq;
+      }
+      if (!el.getAttribute('name')) {
+        el.setAttribute('name', el.id);
+      }
+    }
+  }
+  try {
+    new MutationObserver(fix).observe(document.documentElement, { childList: true, subtree: true });
+  } catch (e) {}
+  document.addEventListener('DOMContentLoaded', fix);
+})();
+</script>"""
+
+
+def _clean_headers(response) -> dict:
+    """复制响应头，但去掉改内容后已经失效的 content-length / content-encoding。"""
+    return {
+        key: value
+        for key, value in response.headers.items()
+        if key.lower() not in ("content-length", "content-encoding")
+    }
+
+
+@app.middleware("http")
+async def patch_swagger_docs(request: Request, call_next):
+    """/docs 页面补上缺失的 id/name；其它请求原样透传。"""
+    if request.method != "GET" or request.url.path.rstrip("/") != "/docs":
+        return await call_next(request)
+
+    response = await call_next(request)
+    if response.status_code != 200:
+        return response
+
+    chunks = []
+    async for chunk in response.body_iterator:
+        chunks.append(chunk)
+    html = b"".join(chunks).decode("utf-8", errors="replace")
+    if "</body>" not in html:
+        return HTMLResponse(html, status_code=response.status_code, headers=_clean_headers(response))
+
+    html = html.replace("</body>", _SWAGGER_FIELD_FIX_JS + "\n</body>")
+    return HTMLResponse(html, status_code=response.status_code, headers=_clean_headers(response))
 
 
 @app.exception_handler(HTTPException)
@@ -204,6 +296,7 @@ app.include_router(learning_assistant.router, prefix="/api/v1/ai/learning-assist
 app.include_router(user_questions.router, prefix="/api/v1/user-questions", tags=["用户题库"])
 app.include_router(ai_questions.router, prefix="/api/v1/ai/questions", tags=["AI 出题"])
 app.include_router(typing.router, prefix="/api/typing", tags=["typing"])
+app.include_router(launcher.router, prefix="/api/v1/launcher", tags=["本地桌面版启动器"])
 
 
 @app.get("/")
@@ -215,6 +308,34 @@ async def root():
     if not IS_PRODUCTION:
         payload["docs"] = "/docs"
     return payload
+
+
+@app.get("/favicon.ico", include_in_schema=False)
+async def favicon():
+    """浏览器会自动请求 /favicon.ico，不提供的话每个页面都报 404。"""
+    if _FAVICON_PATH.is_file():
+        return FileResponse(_FAVICON_PATH, media_type="image/x-icon")
+    return Response(status_code=204)
+
+
+# 本地离线版接口文档：自带完整页面，不依赖 swagger-ui / redoc 的 CDN，
+# 机器断网时依然能正常查看接口说明、参数与响应。
+_API_DOCS_HTML = Path(__file__).resolve().parent / "static" / "api-docs.html"
+
+
+if not IS_PRODUCTION:
+
+    @app.get("/docs", include_in_schema=False)
+    async def local_api_docs():
+        """本地离线版 API 文档页。"""
+        if not _API_DOCS_HTML.is_file():
+            raise HTTPException(status_code=404, detail="本地 API 文档文件缺失")
+        return FileResponse(_API_DOCS_HTML, media_type="text/html; charset=utf-8")
+
+    @app.get("/redoc", include_in_schema=False)
+    async def local_redoc():
+        """ReDoc 依赖 CDN，这里统一跳到本地文档页。"""
+        return RedirectResponse(url="/docs")
 
 
 @app.get("/health")

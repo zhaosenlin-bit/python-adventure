@@ -1,0 +1,978 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>编程冒险岛 API · 本地文档</title>
+<style>
+:root {
+  --bg: #0b0f1c;
+  --bg-soft: #121a2e;
+  --bg-card: #141d33;
+  --line: #24304f;
+  --line-soft: #1c2540;
+  --text: #e7ecf7;
+  --text-dim: #9aa8c7;
+  --text-faint: #6b7a9c;
+  --accent: #35d0c0;
+  --accent-soft: #7ef9e4;
+  --get: #4fc3f7;
+  --post: #8bd450;
+  --put: #ffb347;
+  --patch: #c792ea;
+  --delete: #ff6b6b;
+  --head: #7ef9e4;
+  --radius: 8px;
+  --mono: "Cascadia Code", "JetBrains Mono", Consolas, "Courier New", monospace;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", system-ui, sans-serif;
+  font-size: 14px;
+  line-height: 1.6;
+}
+a { color: var(--accent-soft); }
+
+/* ---------- 顶栏 ---------- */
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 20px;
+  background: rgba(11, 15, 28, 0.94);
+  border-bottom: 1px solid var(--line);
+  backdrop-filter: blur(8px);
+}
+.brand { display: flex; gap: 12px; align-items: center; min-width: 0; }
+.logo {
+  display: grid;
+  place-items: center;
+  width: 40px; height: 40px;
+  border-radius: var(--radius);
+  background: linear-gradient(140deg, var(--accent), #2b7f9c);
+  color: #06212a;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  flex: none;
+}
+.brand h1 { margin: 0; font-size: 17px; line-height: 1.3; }
+.brand p { margin: 0; font-size: 12px; color: var(--text-dim); }
+.tools { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+
+input[type="search"], input[type="text"], input[type="password"], textarea, select {
+  background: var(--bg-soft);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--text);
+  font: inherit;
+  padding: 7px 10px;
+  min-width: 0;
+}
+input[type="search"] { width: 260px; }
+textarea { width: 100%; font-family: var(--mono); font-size: 13px; resize: vertical; }
+input:focus, textarea:focus, select:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+
+button {
+  background: var(--bg-soft);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+  padding: 7px 14px;
+}
+button:hover { border-color: var(--accent); color: var(--accent-soft); }
+button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #06212a;
+  font-weight: 600;
+}
+button.primary:hover { background: var(--accent-soft); color: #06212a; }
+button.small { padding: 4px 10px; font-size: 12px; }
+
+/* ---------- 布局 ---------- */
+.layout { display: flex; align-items: flex-start; }
+.sidebar {
+  position: sticky;
+  top: 65px;
+  width: 264px;
+  flex: none;
+  max-height: calc(100vh - 65px);
+  overflow-y: auto;
+  padding: 16px 12px 40px;
+  border-right: 1px solid var(--line);
+}
+.tag-list { display: flex; flex-direction: column; gap: 2px; }
+.tag-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  border-left: 2px solid transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+  font-size: 13px;
+}
+.tag-item:hover { background: var(--bg-soft); color: var(--text); }
+.tag-item.active { background: var(--bg-soft); color: var(--accent-soft); border-left-color: var(--accent); }
+.tag-count { color: var(--text-faint); font-size: 12px; font-variant-numeric: tabular-nums; }
+.content { flex: 1; min-width: 0; padding: 24px 28px 80px; }
+.loading { color: var(--text-dim); padding: 40px 0; }
+
+/* ---------- 接口卡片 ---------- */
+.group { margin-bottom: 40px; scroll-margin-top: 80px; }
+.group-title {
+  display: flex; align-items: baseline; gap: 10px;
+  margin: 0 0 14px;
+  font-size: 18px;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 8px;
+}
+.group-title .count { color: var(--text-faint); font-size: 13px; font-weight: 400; }
+.op {
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius);
+  background: var(--bg-card);
+  margin-bottom: 10px;
+  overflow: hidden;
+}
+.op-head { display: flex; gap: 12px; align-items: center; padding: 10px 14px; cursor: pointer; }
+.op-head:hover { background: rgba(53, 208, 192, 0.06); }
+.method {
+  flex: none;
+  min-width: 66px;
+  text-align: center;
+  padding: 3px 8px;
+  border-radius: 5px;
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  color: #08111f;
+}
+.method.get { background: var(--get); }
+.method.post { background: var(--post); }
+.method.put { background: var(--put); }
+.method.patch { background: var(--patch); }
+.method.delete { background: var(--delete); }
+.method.head, .method.options, .method.trace { background: var(--text-faint); }
+.op-path { font-family: var(--mono); font-size: 13.5px; word-break: break-all; }
+.op-summary { color: var(--text-dim); font-size: 13px; margin-left: auto; text-align: right; }
+.op-body { display: none; padding: 0 14px 16px; border-top: 1px solid var(--line-soft); }
+.op.open .op-body { display: block; }
+.op-desc { color: var(--text-dim); margin: 12px 0; white-space: pre-wrap; }
+.sub-title { font-size: 13px; font-weight: 600; margin: 16px 0 8px; color: var(--accent-soft); }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--line-soft); vertical-align: top; }
+th { color: var(--text-faint); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 0.4px; }
+td.name { font-family: var(--mono); color: var(--accent-soft); white-space: nowrap; }
+td.type { font-family: var(--mono); color: var(--text-dim); }
+.req { color: var(--delete); font-size: 11px; }
+.desc-cell { color: var(--text-dim); }
+
+/* ---------- 试一试 ---------- */
+.tryout { margin-top: 14px; border-top: 1px dashed var(--line); padding-top: 12px; }
+.row { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; margin-bottom: 10px; }
+.field { display: flex; flex-direction: column; gap: 4px; }
+.field label { font-size: 12px; color: var(--text-dim); }
+.field input { min-width: 180px; }
+.response { margin-top: 12px; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+.response-head {
+  display: flex; gap: 10px; align-items: center;
+  padding: 7px 12px; background: var(--bg-soft); font-size: 13px;
+}
+.status-ok { color: var(--post); font-weight: 700; }
+.status-bad { color: var(--delete); font-weight: 700; }
+pre {
+  margin: 0; padding: 12px; background: #080c17; color: #cfe3ff;
+  font-family: var(--mono); font-size: 12.5px; overflow: auto; max-height: 420px;
+  white-space: pre-wrap; word-break: break-word;
+}
+.code {
+  font-family: var(--mono); font-size: 12.5px; color: #cfe3ff;
+  background: #080c17; border: 1px solid var(--line-soft);
+  border-radius: 6px; padding: 8px 10px; display: block; overflow: auto;
+}
+.hint { color: var(--text-faint); font-size: 12px; }
+.notice {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  margin: 12px 20px 0; padding: 10px 14px;
+  border: 1px solid var(--line); border-left: 3px solid var(--accent);
+  border-radius: var(--radius); background: var(--bg-soft);
+  color: var(--text-dim); font-size: 13px;
+}
+.notice strong { color: var(--text); }
+.notice a { font-weight: 600; }
+.notice.hidden { display: none; }
+.response-body { padding: 12px 14px; border-top: 1px solid var(--line-soft); }
+.auth-tag {
+  flex: none; padding: 2px 8px; border-radius: 4px; font-size: 11px;
+  color: #ffcf8a; border: 1px solid rgba(255,179,71,0.45); background: rgba(255,179,71,0.12);
+}
+
+/* ---------- 授权弹窗 ---------- */
+.modal {
+  position: fixed; inset: 0; z-index: 50;
+  background: rgba(5, 8, 16, 0.72);
+  display: grid; place-items: center; padding: 20px;
+}
+.modal.hidden { display: none; }
+.modal-box {
+  width: min(460px, 100%);
+  background: var(--bg-card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 20px;
+}
+.modal-box h2 { margin: 0 0 4px; font-size: 16px; }
+.modal-box p { margin: 0 0 14px; color: var(--text-dim); font-size: 13px; }
+.modal-box .field { margin-bottom: 12px; }
+.modal-box .field input { width: 100%; }
+.modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
+.auth-status { font-size: 12px; color: var(--text-faint); margin-top: 10px; }
+
+@media (max-width: 860px) {
+  .layout { flex-direction: column; }
+  .sidebar { position: static; width: 100%; max-height: 220px; border-right: none; border-bottom: 1px solid var(--line); }
+  .content { padding: 18px 14px 60px; }
+  input[type="search"] { width: 100%; }
+  .tools { width: 100%; }
+  .op-summary { display: none; }
+}
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <span class="logo">API</span>
+    <div>
+      <h1 id="api-title">编程冒险岛 API</h1>
+      <p id="api-version">正在加载本地接口文档…</p>
+    </div>
+  </div>
+  <div class="tools">
+    <input id="api-search" name="apiSearch" type="search" aria-label="搜索接口 / 路径 / 标签" placeholder="搜索接口 / 路径 / 标签" autocomplete="off">
+    <button id="authorize-btn" name="authorizeBtn" type="button">授权</button>
+  </div>
+</header>
+
+<div id="file-notice" class="notice hidden"></div>
+
+<div class="layout">
+  <nav class="sidebar"><div id="tag-list" class="tag-list"></div></nav>
+  <main id="content" class="content"><div class="loading">正在读取 openapi.json …</div></main>
+</div>
+
+<div id="auth-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="auth-title">
+  <div class="modal-box">
+    <h2 id="auth-title">授权</h2>
+    <p id="auth-desc">登录后会带上 <code>Authorization: Bearer …</code> 请求头。</p>
+    <div id="auth-fields"></div>
+    <div class="auth-status" id="auth-status">尚未授权</div>
+    <div class="modal-actions">
+      <button id="auth-clear" name="authClear" type="button">清除</button>
+      <button id="auth-close" name="authClose" type="button">关闭</button>
+      <button id="auth-submit" name="authSubmit" type="button" class="primary">登录</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  var spec = null;
+  var token = "";
+  var tokenType = "bearer";
+  var apiKeyName = "";
+  var apiKeyValue = "";
+  var filterText = "";
+  var activeTag = "";
+
+  var METHODS = ["get", "post", "put", "patch", "delete", "head", "options", "trace"];
+
+  // 这个页面既可以由后端直接提供（http://localhost:8000/docs），
+  // 也可能被当成普通文件用 file:// 直接打开。后者读不到同目录的 openapi.json，
+  // 所以要显式指向本机后端。
+  var IS_FILE = window.location.protocol === "file:";
+  var BACKEND = "http://localhost:8000";
+
+  function apiBase() {
+    return IS_FILE ? BACKEND : window.location.origin;
+  }
+
+  function el(tag, cls, text) {
+    var node = document.createElement(tag);
+    if (cls) node.className = cls;
+    if (text !== undefined && text !== null) node.textContent = String(text);
+    return node;
+  }
+
+  function resolveRef(ref) {
+    if (!ref || ref.indexOf("#/") !== 0) return null;
+    var parts = ref.slice(2).split("/");
+    var current = spec;
+    for (var i = 0; i < parts.length; i++) {
+      if (!current) return null;
+      current = current[parts[i].replace(/~1/g, "/").replace(/~0/g, "~")];
+    }
+    return current || null;
+  }
+
+  function schemaOf(node) {
+    if (!node) return null;
+    if (node.$ref) return resolveRef(node.$ref);
+    if (node.allOf && node.allOf.length) {
+      var merged = { type: "object", properties: {}, required: [] };
+      for (var i = 0; i < node.allOf.length; i++) {
+        var part = schemaOf(node.allOf[i]);
+        if (part && part.properties) {
+          for (var key in part.properties) {
+            if (Object.prototype.hasOwnProperty.call(part.properties, key)) merged.properties[key] = part.properties[key];
+          }
+          if (part.required) merged.required = merged.required.concat(part.required);
+        }
+      }
+      return merged;
+    }
+    return node;
+  }
+
+  function typeName(schema) {
+    if (!schema) return "-";
+    if (schema.$ref) {
+      var parts = schema.$ref.split("/");
+      return parts[parts.length - 1];
+    }
+    if (schema.type === "array") return "array[" + typeName(schema.items) + "]";
+    if (schema.enum) return "enum(" + schema.enum.join(" | ") + ")";
+    if (!schema.type && schema.properties) return "object";
+    return schema.type || "any";
+  }
+
+  function sampleFor(schema, depth) {
+    depth = depth || 0;
+    if (!schema) return null;
+    if (schema.example !== undefined) return schema.example;
+    if (schema.default !== undefined) return schema.default;
+    if (schema.$ref) return sampleFor(resolveRef(schema.$ref), depth);
+    if (schema.enum && schema.enum.length) return schema.enum[0];
+    var type = schema.type || (schema.properties ? "object" : "string");
+    if (type === "object" || schema.properties) {
+      var out = {};
+      var props = schema.properties || {};
+      for (var key in props) {
+        if (Object.prototype.hasOwnProperty.call(props, key) && depth < 3) {
+          out[key] = sampleFor(props[key], depth + 1);
+        }
+      }
+      return out;
+    }
+    if (type === "array") return [sampleFor(schema.items, depth + 1)];
+    if (type === "integer" || type === "number") return 0;
+    if (type === "boolean") return true;
+    if (type === "null") return null;
+    return "string";
+  }
+
+  function operations() {
+    var list = [];
+    if (!spec || !spec.paths) return list;
+    var paths = spec.paths;
+    for (var path in paths) {
+      if (!Object.prototype.hasOwnProperty.call(paths, path)) continue;
+      var item = paths[path];
+      for (var i = 0; i < METHODS.length; i++) {
+        var method = METHODS[i];
+        if (!item[method]) continue;
+        list.push({ path: path, method: method, op: item[method] });
+      }
+    }
+    return list;
+  }
+
+  function groupByTag() {
+    var groups = {};
+    var order = [];
+    var list = operations();
+    for (var i = 0; i < list.length; i++) {
+      var tags = list[i].op.tags && list[i].op.tags.length ? list[i].op.tags : ["默认"];
+      for (var t = 0; t < tags.length; t++) {
+        var tag = tags[t];
+        if (!groups[tag]) { groups[tag] = []; order.push(tag); }
+        groups[tag].push(list[i]);
+      }
+    }
+    order.sort(function (a, b) {
+      return groups[b].length - groups[a].length || a.localeCompare(b);
+    });
+    return { groups: groups, order: order };
+  }
+
+  function matchesFilter(entry) {
+    if (!filterText) return true;
+    var hay = (entry.path + " " + (entry.op.summary || "") + " " + (entry.op.description || "") + " " + (entry.op.tags || []).join(" ")).toLowerCase();
+    return hay.indexOf(filterText) !== -1;
+  }
+
+  function renderSidebar() {
+    var box = document.getElementById("tag-list");
+    box.innerHTML = "";
+    var data = groupByTag();
+    var all = el("div", "tag-item");
+    all.appendChild(el("span", null, "全部接口"));
+    all.appendChild(el("span", "tag-count", String(operations().length)));
+    all.addEventListener("click", function () { activeTag = ""; renderAll(); });
+    if (!activeTag) all.classList.add("active");
+    box.appendChild(all);
+    for (var i = 0; i < data.order.length; i++) {
+      var tag = data.order[i];
+      var item = el("div", "tag-item");
+      item.appendChild(el("span", null, tag));
+      item.appendChild(el("span", "tag-count", String(data.groups[tag].length)));
+      if (activeTag === tag) item.classList.add("active");
+      item.addEventListener("click", function (name) {
+        return function () { activeTag = name; renderAll(); };
+      }(tag));
+      box.appendChild(item);
+    }
+  }
+
+  function paramTable(params, required) {
+    var table = el("table");
+    var head = el("tr");
+    ["参数", "位置", "类型", "说明"].forEach(function (h) { head.appendChild(el("th", null, h)); });
+    table.appendChild(head);
+    for (var i = 0; i < params.length; i++) {
+      var p = params[i];
+      var row = el("tr");
+      var nameCell = el("td", "name");
+      nameCell.appendChild(document.createTextNode(p.name));
+      if (required && required.indexOf(p.name) !== -1) {
+        var star = el("span", "req", " 必填");
+        nameCell.appendChild(star);
+      }
+      row.appendChild(nameCell);
+      row.appendChild(el("td", "type", p.in));
+      row.appendChild(el("td", "type", typeName(schemaOf(p.schema))));
+      row.appendChild(el("td", "desc-cell", p.description || ""));
+      table.appendChild(row);
+    }
+    return table;
+  }
+
+  function schemaTable(schema) {
+    schema = schemaOf(schema);
+    var props = (schema && schema.properties) || {};
+    var names = Object.keys(props);
+    if (!names.length) {
+      var plain = el("span", "code", JSON.stringify(sampleFor(schema, 0), null, 2));
+      return plain;
+    }
+    var table = el("table");
+    var head = el("tr");
+    ["字段", "类型", "必填", "说明"].forEach(function (h) { head.appendChild(el("th", null, h)); });
+    table.appendChild(head);
+    var required = schema.required || [];
+    for (var i = 0; i < names.length; i++) {
+      var key = names[i];
+      var sub = schemaOf(props[key]);
+      var row = el("tr");
+      var nameCell = el("td", "name");
+      nameCell.appendChild(document.createTextNode(key));
+      row.appendChild(nameCell);
+      row.appendChild(el("td", "type", typeName(sub)));
+      row.appendChild(el("td", "desc-cell", required.indexOf(key) !== -1 ? "是" : ""));
+      row.appendChild(el("td", "desc-cell", (sub && sub.description) || (sub && sub.title) || ""));
+      table.appendChild(row);
+    }
+    return table;
+  }
+
+  /** 需要登录时给个「去授权」按钮，别让用户白等一个 401。 */
+  function authHint() {
+    var box = el("div", "response-body");
+    box.appendChild(el("div", "hint", "这个接口需要登录令牌。点「去授权」用账号登录后再试。"));
+    var row = el("div", "row");
+    var btn = el("button", "primary", "去授权");
+    btn.type = "button";
+    btn.addEventListener("click", function () { openAuthModal(); });
+    row.appendChild(btn);
+    box.appendChild(row);
+    return box;
+  }
+
+  function showAuthRequired(out) {
+    out.innerHTML = "";
+    var head = el("div", "response-head");
+    head.appendChild(el("span", "status-bad", "需要登录"));
+    out.appendChild(head);
+    out.appendChild(authHint());
+  }
+
+  function openAuthModal() {
+    renderAuthFields();
+    updateAuthStatus();
+    document.getElementById("auth-modal").classList.remove("hidden");
+  }
+
+  function buildTryout(entry, container) {
+    var op = entry.op;
+    // OpenAPI 里带 security 的接口需要登录令牌
+    var needsAuth = !!(op.security && op.security.length);
+    var params = (op.parameters || []).filter(function (p) { return p.in !== "cookie"; });
+    var pathParams = params.filter(function (p) { return p.in === "path"; });
+    var queryParams = params.filter(function (p) { return p.in === "query"; });
+    var headerParams = params.filter(function (p) { return p.in === "header"; });
+    var bodySchema = null;
+    var bodyType = "application/json";
+    if (op.requestBody && op.requestBody.content) {
+      var ctype = Object.keys(op.requestBody.content)[0];
+      bodyType = ctype;
+      bodySchema = op.requestBody.content[ctype].schema;
+    }
+
+    var wrap = el("div", "tryout");
+    var inputs = {};
+
+    function field(labelText, value, key, onInput) {
+      var field = el("div", "field");
+      var label = el("label", null, labelText);
+      label.setAttribute("for", key);
+      var input = el("input");
+      input.type = "text";
+      input.id = key;
+      input.name = key;
+      input.value = value === undefined || value === null ? "" : value;
+      input.addEventListener("input", onInput);
+      field.appendChild(label);
+      field.appendChild(input);
+      inputs[key] = input;
+      return field;
+    }
+
+    if (pathParams.length) {
+      wrap.appendChild(el("div", "sub-title", "路径参数"));
+      var prow = el("div", "row");
+      for (var i = 0; i < pathParams.length; i++) {
+        (function (p) {
+          var key = "path-" + entry.method + "-" + entry.path.replace(/[^a-zA-Z0-9]/g, "_") + "-" + p.name;
+          prow.appendChild(field(p.name + "（" + p.in + "）", "{" + p.name + "}", key, null));
+        }(pathParams[i]));
+      }
+      wrap.appendChild(prow);
+    }
+    if (queryParams.length) {
+      wrap.appendChild(el("div", "sub-title", "查询参数"));
+      var qrow = el("div", "row");
+      for (var q = 0; q < queryParams.length; q++) {
+        (function (p) {
+          var key = "query-" + entry.method + "-" + entry.path.replace(/[^a-zA-Z0-9]/g, "_") + "-" + p.name;
+          var def = p.schema && p.schema.default !== undefined ? p.schema.default : "";
+          qrow.appendChild(field(p.name, def, key, null));
+        }(queryParams[q]));
+      }
+      wrap.appendChild(qrow);
+    }
+    if (headerParams.length) {
+      wrap.appendChild(el("div", "sub-title", "请求头参数"));
+      var hrow = el("div", "row");
+      for (var h = 0; h < headerParams.length; h++) {
+        (function (p) {
+          var key = "header-" + entry.method + "-" + entry.path.replace(/[^a-zA-Z0-9]/g, "_") + "-" + p.name;
+          hrow.appendChild(field(p.name, "", key, null));
+        }(headerParams[h]));
+      }
+      wrap.appendChild(hrow);
+    }
+    if (bodySchema) {
+      wrap.appendChild(el("div", "sub-title", "请求体（" + bodyType + "）"));
+      var bodyKey = "body-" + entry.method + "-" + entry.path.replace(/[^a-zA-Z0-9]/g, "_");
+      var bodyField = el("div", "field");
+      var bodyLabel = el("label", null, "JSON");
+      bodyLabel.setAttribute("for", bodyKey);
+      var textarea = el("textarea");
+      textarea.id = bodyKey;
+      textarea.name = bodyKey;
+      textarea.rows = 8;
+      try {
+        textarea.value = JSON.stringify(sampleFor(bodySchema, 0), null, 2);
+      } catch (err) {
+        textarea.value = "{}";
+      }
+      bodyField.appendChild(bodyLabel);
+      bodyField.appendChild(textarea);
+      wrap.appendChild(bodyField);
+      inputs[bodyKey] = textarea;
+    }
+
+    var actions = el("div", "row");
+    var send = el("button", "primary", "发送请求");
+    send.type = "button";
+    actions.appendChild(send);
+    var reset = el("button", null, "重置示例");
+    reset.type = "button";
+    actions.appendChild(reset);
+    wrap.appendChild(actions);
+    var out = el("div", "response");
+    wrap.appendChild(out);
+    container.appendChild(wrap);
+
+    reset.addEventListener("click", function () {
+      for (var key in inputs) {
+        if (inputs[key].tagName === "TEXTAREA" && bodySchema) {
+          inputs[key].value = JSON.stringify(sampleFor(bodySchema, 0), null, 2);
+        }
+      }
+      out.innerHTML = "";
+    });
+
+    send.addEventListener("click", function () {
+      // 需要登录的接口，没授权就别发：否则浏览器控制台会红一条 401
+      if (needsAuth && !token && !apiKeyValue) {
+        showAuthRequired(out);
+        return;
+      }
+      var url = entry.path;
+      for (var pi = 0; pi < pathParams.length; pi++) {
+        var pk = "path-" + entry.method + "-" + entry.path.replace(/[^a-zA-Z0-9]/g, "_") + "-" + pathParams[pi].name;
+        url = url.replace("{" + pathParams[pi].name + "}", encodeURIComponent(inputs[pk].value));
+      }
+      var query = [];
+      for (var qi = 0; qi < queryParams.length; qi++) {
+        var qk = "query-" + entry.method + "-" + entry.path.replace(/[^a-zA-Z0-9]/g, "_") + "-" + queryParams[qi].name;
+        if (inputs[qk].value !== "") query.push(encodeURIComponent(queryParams[qi].name) + "=" + encodeURIComponent(inputs[qk].value));
+      }
+      if (query.length) url += (url.indexOf("?") === -1 ? "?" : "&") + query.join("&");
+
+      var headers = {};
+      for (var hi = 0; hi < headerParams.length; hi++) {
+        var hk = "header-" + entry.method + "-" + entry.path.replace(/[^a-zA-Z0-9]/g, "_") + "-" + headerParams[hi].name;
+        if (inputs[hk].value !== "") headers[headerParams[hi].name] = inputs[hk].value;
+      }
+      if (token) headers["Authorization"] = tokenType + " " + token;
+      if (apiKeyName && apiKeyValue) headers[apiKeyName] = apiKeyValue;
+
+      var options = { method: entry.method.toUpperCase(), headers: headers };
+      if (bodySchema) {
+        var bk = "body-" + entry.method + "-" + entry.path.replace(/[^a-zA-Z0-9]/g, "_");
+        options.body = inputs[bk].value;
+        if (bodyType.indexOf("json") !== -1) headers["Content-Type"] = "application/json";
+      }
+
+      out.innerHTML = "";
+      var pending = el("div", "response-head");
+      pending.appendChild(el("span", null, "请求中…"));
+      out.appendChild(pending);
+
+      fetch(apiBase() + url, options).then(function (response) {
+        return response.text().then(function (text) {
+          out.innerHTML = "";
+          var head = el("div", "response-head");
+          var code = String(response.status);
+          head.appendChild(el("span", response.ok ? "status-ok" : "status-bad", code + " " + response.statusText));
+          head.appendChild(el("span", "hint", response.headers.get("content-type") || ""));
+          out.appendChild(head);
+          if (response.status === 401 || response.status === 403) out.appendChild(authHint());
+          var pre = el("pre");
+          var pretty = text;
+          try { pretty = JSON.stringify(JSON.parse(text), null, 2); } catch (err) { pretty = text; }
+          pre.textContent = pretty;
+          out.appendChild(pre);
+        });
+      }).catch(function (err) {
+        out.innerHTML = "";
+        var head = el("div", "response-head");
+        head.appendChild(el("span", "status-bad", "请求失败"));
+        out.appendChild(head);
+        var pre = el("pre");
+        pre.textContent = String(err && err.message ? err.message : err);
+        out.appendChild(pre);
+      });
+    });
+  }
+
+  function renderOperation(entry) {
+    var card = el("div", "op");
+    card.setAttribute("data-path", entry.path + " " + entry.method);
+    var head = el("div", "op-head");
+    head.appendChild(el("span", "method " + entry.method, entry.method.toUpperCase()));
+    head.appendChild(el("span", "op-path", entry.path));
+    if (entry.op.summary) head.appendChild(el("span", "op-summary", entry.op.summary));
+    if (entry.op.security && entry.op.security.length) head.appendChild(el("span", "auth-tag", "需登录"));
+    card.appendChild(head);
+
+    var body = el("div", "op-body");
+    if (entry.op.description && entry.op.description !== entry.op.summary) {
+      body.appendChild(el("p", "op-desc", entry.op.description));
+    }
+    var params = (entry.op.parameters || []).filter(function (p) { return p.in !== "cookie"; });
+    if (params.length) {
+      body.appendChild(el("div", "sub-title", "参数"));
+      body.appendChild(paramTable(params, entry.op.required || []));
+    }
+    if (entry.op.requestBody && entry.op.requestBody.content) {
+      var ctype = Object.keys(entry.op.requestBody.content)[0];
+      body.appendChild(el("div", "sub-title", "请求体（" + ctype + "）"));
+      body.appendChild(schemaTable(entry.op.requestBody.content[ctype].schema));
+    }
+    if (entry.op.responses) {
+      body.appendChild(el("div", "sub-title", "响应"));
+      var table = el("table");
+      var rhead = el("tr");
+      ["状态码", "说明", "类型"].forEach(function (h) { rhead.appendChild(el("th", null, h)); });
+      table.appendChild(rhead);
+      var codes = Object.keys(entry.op.responses);
+      for (var i = 0; i < codes.length; i++) {
+        var res = entry.op.responses[codes[i]];
+        var row = el("tr");
+        row.appendChild(el("td", "name", codes[i]));
+        row.appendChild(el("td", "desc-cell", res.description || ""));
+        var rt = "-";
+        if (res.content) {
+          var rct = Object.keys(res.content)[0];
+          rt = typeName(schemaOf(res.content[rct].schema));
+        }
+        row.appendChild(el("td", "type", rt));
+        table.appendChild(row);
+      }
+      body.appendChild(table);
+    }
+    buildTryout(entry, body);
+    card.appendChild(body);
+
+    head.addEventListener("click", function () {
+      card.classList.toggle("open");
+    });
+    return card;
+  }
+
+  function renderAll() {
+    renderSidebar();
+    var content = document.getElementById("content");
+    content.innerHTML = "";
+    var data = groupByTag();
+    var shown = 0;
+    for (var i = 0; i < data.order.length; i++) {
+      var tag = data.order[i];
+      if (activeTag && activeTag !== tag) continue;
+      var entries = data.groups[tag].filter(matchesFilter);
+      if (!entries.length) continue;
+      shown += entries.length;
+      var group = el("section", "group");
+      group.id = "group-" + encodeURIComponent(tag);
+      var title = el("h2", "group-title");
+      title.appendChild(document.createTextNode(tag));
+      title.appendChild(el("span", "count", entries.length + " 个接口"));
+      group.appendChild(title);
+      for (var j = 0; j < entries.length; j++) {
+        group.appendChild(renderOperation(entries[j]));
+      }
+      content.appendChild(group);
+    }
+    if (!shown) {
+      content.appendChild(el("div", "loading", "没有匹配的接口，换个关键词试试。"));
+    }
+  }
+
+  function renderAuthFields() {
+    var box = document.getElementById("auth-fields");
+    box.innerHTML = "";
+    var schemes = (spec && spec.components && spec.components.securitySchemes) || {};
+    var names = Object.keys(schemes);
+    if (!names.length) {
+      box.appendChild(el("p", "hint", "这份接口文档没有声明授权方式。"));
+      return;
+    }
+    for (var i = 0; i < names.length; i++) {
+      var name = names[i];
+      var scheme = schemes[name];
+      var title = el("div", "sub-title", name);
+      box.appendChild(title);
+      if (scheme.type === "oauth2" && scheme.flows && scheme.flows.password) {
+        var flow = scheme.flows.password;
+        var uField = el("div", "field");
+        var uLabel = el("label", null, "用户名");
+        uLabel.setAttribute("for", "auth-username");
+        var uInput = el("input");
+        uInput.type = "text";
+        uInput.id = "auth-username";
+        uInput.name = "authUsername";
+        uInput.value = "demo";
+        uField.appendChild(uLabel);
+        uField.appendChild(uInput);
+        box.appendChild(uField);
+
+        var pField = el("div", "field");
+        var pLabel = el("label", null, "密码");
+        pLabel.setAttribute("for", "auth-password");
+        var pInput = el("input");
+        pInput.type = "password";
+        pInput.id = "auth-password";
+        pInput.name = "authPassword";
+        pInput.value = "123456";
+        pField.appendChild(pLabel);
+        pField.appendChild(pInput);
+        box.appendChild(pField);
+
+        box.setAttribute("data-flow", "password");
+        box.setAttribute("data-token-url", flow.tokenUrl || "");
+        box.setAttribute("data-scope", flow.scopes ? Object.keys(flow.scopes).join(" ") : "");
+      } else if (scheme.type === "apiKey") {
+        var aField = el("div", "field");
+        var aLabel = el("label", null, scheme.name + "（放在 " + scheme.in + " 里）");
+        aLabel.setAttribute("for", "auth-apikey");
+        var aInput = el("input");
+        aInput.type = "text";
+        aInput.id = "auth-apikey";
+        aInput.name = "authApiKey";
+        aField.appendChild(aLabel);
+        aField.appendChild(aInput);
+        box.appendChild(aField);
+        box.setAttribute("data-flow", "apikey");
+        box.setAttribute("data-apikey-name", scheme.name || "");
+        box.setAttribute("data-apikey-in", scheme.in || "header");
+      } else if (scheme.type === "http") {
+        var hField = el("div", "field");
+        var hLabel = el("label", null, scheme.scheme === "bearer" ? "Bearer Token" : scheme.scheme + " 值");
+        hLabel.setAttribute("for", "auth-token");
+        var hInput = el("input");
+        hInput.type = "password";
+        hInput.id = "auth-token";
+        hInput.name = "authToken";
+        hField.appendChild(hLabel);
+        hField.appendChild(hInput);
+        box.appendChild(hField);
+        box.setAttribute("data-flow", "bearer");
+        box.setAttribute("data-token-type", scheme.scheme || "bearer");
+      }
+    }
+  }
+
+  function updateAuthStatus() {
+    var status = document.getElementById("auth-status");
+    if (token) status.textContent = "已授权：" + tokenType + " " + token.slice(0, 18) + "…";
+    else if (apiKeyValue) status.textContent = "已授权：API Key " + apiKeyName;
+    else status.textContent = "尚未授权";
+  }
+
+  function bindAuth() {
+    var modal = document.getElementById("auth-modal");
+    var fields = document.getElementById("auth-fields");
+    document.getElementById("authorize-btn").addEventListener("click", openAuthModal);
+    document.getElementById("auth-close").addEventListener("click", function () {
+      modal.classList.add("hidden");
+    });
+    document.getElementById("auth-clear").addEventListener("click", function () {
+      token = "";
+      apiKeyValue = "";
+      updateAuthStatus();
+    });
+    modal.addEventListener("click", function (event) {
+      if (event.target === modal) modal.classList.add("hidden");
+    });
+    document.getElementById("auth-submit").addEventListener("click", function () {
+      var flow = fields.getAttribute("data-flow");
+      var status = document.getElementById("auth-status");
+      if (flow === "password") {
+        var tokenUrl = fields.getAttribute("data-token-url");
+        var username = document.getElementById("auth-username").value;
+        var password = document.getElementById("auth-password").value;
+        status.textContent = "登录中…";
+        fetch(apiBase() + tokenUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ username: username, password: password })
+        }).then(function (response) {
+          return response.json().then(function (data) {
+            if (!response.ok) throw new Error(data && data.detail ? JSON.stringify(data.detail) : "登录失败");
+            return data;
+          });
+        }).then(function (data) {
+          token = data.access_token || data.accessToken || "";
+          tokenType = data.token_type || "bearer";
+          updateAuthStatus();
+        }).catch(function (err) {
+          status.textContent = "登录失败：" + (err && err.message ? err.message : err);
+        });
+      } else if (flow === "apikey") {
+        apiKeyName = fields.getAttribute("data-apikey-name");
+        apiKeyValue = document.getElementById("auth-apikey").value;
+        updateAuthStatus();
+      } else if (flow === "bearer") {
+        token = document.getElementById("auth-token").value;
+        tokenType = fields.getAttribute("data-token-type") || "bearer";
+        updateAuthStatus();
+      }
+    });
+  }
+
+  function bindSearch() {
+    var input = document.getElementById("api-search");
+    input.addEventListener("input", function () {
+      filterText = input.value.trim().toLowerCase();
+      renderAll();
+    });
+  }
+
+  /** file:// 直接打开时的提示条：告诉用户后端在哪、在线版在哪。 */
+  function showFileNotice() {
+    var notice = document.getElementById("file-notice");
+    if (!notice) return;
+    notice.classList.remove("hidden");
+    notice.innerHTML = "";
+    var strong = document.createElement("strong");
+    strong.textContent = "当前以本地文件方式打开";
+    notice.appendChild(strong);
+    notice.appendChild(document.createTextNode("页面正在连接 " + BACKEND + "，请确认后端已启动。"));
+    var link = document.createElement("a");
+    link.href = BACKEND + "/docs";
+    link.target = "_blank";
+    link.rel = "noreferrer";
+    link.textContent = "打开在线版 →";
+    notice.appendChild(link);
+  }
+
+  function start() {
+    if (IS_FILE) showFileNotice();
+    fetch(apiBase() + "/openapi.json", { cache: "no-store" }).then(function (response) {
+      if (!response.ok) throw new Error("openapi.json 读取失败：" + response.status);
+      return response.json();
+    }).then(function (data) {
+      spec = data;
+      document.getElementById("api-title").textContent = (spec.info && spec.info.title) || "API 文档";
+      var version = (spec.info && spec.info.version) || "-";
+      var count = operations().length;
+      var groups = groupByTag().order.length;
+      document.getElementById("api-version").textContent = "v" + version + " · " + count + " 个接口 · " + groups + " 个分组 · 本地离线文档";
+      renderAll();
+      bindAuth();
+      bindSearch();
+      updateAuthStatus();
+    }).catch(function (err) {
+      var content = document.getElementById("content");
+      content.innerHTML = "";
+      var box = el("div", "loading");
+      box.textContent = "读取 openapi.json 失败：" + (err && err.message ? err.message : err);
+      content.appendChild(box);
+      var tip = el("div", "loading");
+      tip.textContent = "请先启动后端（.\\start-dev.ps1），或直接访问 " + BACKEND + "/docs";
+      content.appendChild(tip);
+    });
+  }
+
+  start();
+})();
+</script>
+</body>
+</html>
