@@ -26,7 +26,7 @@
 | 🥊 **1v1 PvP** | 实时 1v1 编程对战，心跳 15s、60s 内最多 3 个房间 |
 | 🐾 **宠物系统** | 宠物养成、孵化、装饰、小屋交互、宠物聊天（DeepSeek 兜底） |
 | ⌨️ **打字训练** | 9 款独立打字游戏，课程进度落库，支持语音 TTS / 速度排行 |
-| 🏔️ **3D 打字闯关** | 网页版（three.js，浏览器直接玩）：探索 → 答题 → 开门 → 下一关，每天 24 关，中文可按拼音打 |
+| 🏔️ **3D 打字闯关** | 网页版（three.js，浏览器直接玩）：探索 → 答题 → 开门 → 下一关，每天 24 关，中文可按拼音打；另附 Ursina 桌面版 |
 | 🧠 **代码研究** | AI 驱动的代码研究入口，配套战役化引导 |
 
 ### 🛠️ 创意工坊
@@ -70,10 +70,78 @@
 启动后访问：
 
 - 游戏首页：http://localhost:3000
-- FastAPI 文档：http://localhost:8000/docs（非生产环境）
+- FastAPI 文档：http://localhost:8000/docs（非生产环境，**本地离线版**，断网也能看）
 - 健康检查：http://localhost:8000/health
 
-测试账号：`senlin8dog` / `123456`
+测试账号：`demo` / `123456`（本地新建；`senlin8dog` 是线上库的账号，本地不存在）
+
+> `/docs` 用的是仓库自带的离线文档页（`backend/app/static/api-docs.html`），不加载任何 CDN 资源，
+> 所以这台机器完全断网也能正常翻接口。它会读取 `/openapi.json` 自动列出全部接口与参数，
+> 点右上角「授权」可以用 `demo` / `123456` 登录，之后每个接口都能直接「发送请求」试跑。
+> 也可以直接双击 `backend/app/static/api-docs.html` 用 file:// 打开——页面会自动改连
+> `http://localhost:8000`，顶部会出现提示条；后端的 CORS 已放行 `null` 来源，所以这样也能读接口、试接口。
+> 需要登录的接口在卡片上会标「需登录」；没授权时点「发送请求」不会真的发请求，
+> 而是提示先点「去授权」，避免控制台里出现一条没意义的 401。
+
+### 初始化内容数据
+
+仓库里有 20 多个 `init_*.py` 种子脚本，其中几个会**全量清空**地图对象表，
+单独按任意顺序跑的话结果取决于「谁最后跑」，很多地图区域最后是空的。
+统一入口：
+
+```powershell
+cd backend
+.venv\Scripts\python.exe seed_all.py          # 重置内容表并灌入全部种子数据
+.venv\Scripts\python.exe seed_all.py --keep   # 保留现有内容，增量补种
+.venv\Scripts\python.exe seed_all.py --list   # 列出所有步骤
+```
+
+脚本会自己管理清理顺序、把旧区域名归一化到规范区域名，最后打印每个区域的对象数。
+**不会碰** users / user_progress / pets / inventory 等用户数据。
+
+### 打包桌面版 exe
+
+打成一个不依赖 Node / Python 的 Windows 程序，双击即玩：
+
+```powershell
+python scripts\build_exe.py
+```
+
+产物：
+
+- `dist\PythonAdventureIsland\PythonAdventureIsland.exe`（约 258 MB）
+- `dist\PythonAdventureIsland-win-x64.zip`（分发用）
+
+技术路线：Next.js 静态导出（`output: export`）+ FastAPI 直接托管前端，
+再用 PyInstaller 打成一个目录版 exe（onedir，秒级启动；onefile 要解压
+8000 多个资源文件，太慢）。
+
+**运行机制**：
+
+- 数据（数据库、密钥、日志）写在 exe 同级的 `data/`；该目录不可写时自动改用 `%APPDATA%\PythonAdventureIsland\data`。
+- 首次启动会释放一份已经灌好内容的数据库，并创建测试账号 `demo` / `123456`（满级，可逛全部地图区域）。
+- 端口优先用 8000，被占用时依次换 8001 / 8002 / 8123 / 8765。
+- 启动后自动打开浏览器，**关掉那个命令行窗口即退出游戏**。
+- `data\config.json` 里可以改 MiniMax / DeepSeek 的 key（打包时会把 `backend\.env` 里的值带过来）。
+
+想重新打包时：
+
+```powershell
+python scripts\build_exe.py --skip-frontend   # 前端没改时，只重打后端
+python scripts\build_exe.py --skip-seed       # 内容没改时，复用数据库模板
+```
+
+### 可选：外部 AI 能力
+
+在 `backend/.env` 里配置，不配的话相关功能自动降级（启动日志会列出来）：
+
+| 环境变量 | 用途 |
+| --- | --- |
+| `DEEPSEEK_API_KEY` | AI 出题、宠物聊天 |
+| `MINIMAX_API_KEY` + `MINIMAX_TTS_ENDPOINT` | 打字训练语音朗读 |
+
+> MiniMax 国内版接口是 `https://api.minimaxi.com/v1/t2a_v2`，国际版是 `https://api.minimax.io/v1/t2a_v2`，
+> 两边的 key **不通用**，用错会返回 `invalid api key`。
 
 ### 手动启动
 
@@ -86,7 +154,8 @@ python -m venv .venv
 # Linux / macOS
 source .venv/bin/activate
 pip install -r requirements.txt
-python init_db_quick.py   # 首次运行初始化数据库
+python init_db_quick.py   # 首次运行初始化数据库表
+python seed_all.py       # 首次运行灌入地图/任务/题库等内容
 python -m uvicorn app.main:app --reload --port 8000
 ```
 
@@ -101,7 +170,8 @@ npm run dev
 在浏览器里直接玩的 3D 打字闯关，玩法参考 Poki 的《The Pillar》：
 探索 → 答题 → 开门 → 进入下一关。
 
-* **网页版**：Next.js + three.js，浏览器直接玩，成绩存在本地
+* **网页版（推荐）**：Next.js + three.js，浏览器直接玩，成绩存在本地
+* **桌面版（附加）**：`game3d/` 里的 Ursina 独立程序，纯本地离线，游戏内可一键启动
 
 #### 网页版
 
@@ -161,21 +231,25 @@ python scripts\build_typing3d_bank.py   # 生成 public/typing/data/typing3d-ban
 | 走近面板按 `E`，或直接点面板 | `engine.ts::updateNearPanel()` 与 `pickAt()` → `Typing3DGame.tsx::openTyping()` |
 | 打字窗口（大题目 + 输入框 + 回车提交） | `Typing3DGame.tsx` 里 `phase === "typing"`；回车在输入框的 `onKeyDown` 里判断 |
 | 打对 → 面板变绿、门缓缓升起 | `engine.ts::solvePanel()`；开门动画在 `updateAnimations()` 里插值 `doorSlab.position.y` |
-| 打错 → 标红，已输入的内容保留，改完可以接着交 | `Typing3DGame.tsx::handleSubmit()` 的 else 分支 |
+| 打错 → 标红 + 「再试一次」 | `Typing3DGame.tsx::handleSubmit()` 的 else 分支 |
 | 走进打开的门 → 下一关 | `engine.ts::checkDoor()` → `onReachDoor` → 换关 |
 | 闯关完成结算页 | `Typing3DGame.tsx::finishRun()`（正确数 / 总用时 / 正确率 / 返回大厅） |
+| 一键拉起桌面版 | `backend/app/api/v1/launcher.py` 的 `POST /api/v1/launcher/3d-typing` |
 
-#### 网页版 · 验收脚本
-
-两个脚本都要先起开发服务器（`.\start-dev.ps1` 或 `npm run dev`）：
+#### 桌面版（Ursina，可选）
 
 ```powershell
-node scripts\qa-typing3d.mjs          # 主验收：画面、面板、答题、开门、换关、窄视口
-node scripts\qa-typing3d-fullrun.mjs  # 整轮通关：24 关从头打到尾，再查成绩与排行榜
+# 安装依赖（Python 3.10+）
+pip install -r game3d\requirements.txt
+
+# 在项目根目录（python-adventure）下启动
+python -m game3d.main              # 窗口模式 1280x720
+python -m game3d.main --fullscreen # 全屏
 ```
 
-`qa-typing3d-fullrun.mjs` 会逐关检查「穿门后正好进到下一关」，
-专门盯一次性穿门跳两关这种回归。
+桌面版不依赖 Next.js 前端和 FastAPI 后端，纯本地运行、不联网。
+模型全部用 Cube / Plane 拼，不依赖外部模型和贴图。
+完整说明（文件结构、每个功能对应哪段代码、常见问题）见 [`game3d/README.md`](./game3d/README.md)。
 
 ### 校验
 
@@ -188,6 +262,12 @@ npm run lint
 
 # 后端测试（pytest）
 python -m pytest backend/tests -q
+```
+
+```powershell
+# 3D 打字闯关 · 每日题库自检（不需要图形环境）
+python game3d\tests\test_questions.py
+python -m game3d.questions      # 打印当天的题目清单
 ```
 
 ---
@@ -233,9 +313,10 @@ game-google/
 ├── store/                      # Zustand 状态（game/auth/pvp）
 ├── server/                     # Node 侧 WS / 实时网关
 ├── scripts/                    # 同步 / 资产刷新 / QA 脚本
+├── game3d/                     # 🏔️ 3D 打字闯关（Ursina 桌面版，网页版的附加选项）
 ├── deploy/                     # 生产部署脚本 + nginx + 文档
 ├── release/                    # 部署包 + SHA256SUMS + 发布说明
-└── __tests__/                  # Jest 单元测试（22 套件 / 112 用例）
+└── __tests__/                  # Jest 单元测试（21 套件 / 100 用例）
 ```
 
 ---
@@ -247,7 +328,7 @@ game-google/
 | 前端框架 | Next.js 16 + React 19 + TypeScript 5 |
 | 样式 | Tailwind CSS 4 |
 | 游戏引擎 | Phaser 3.90 |
-| 3D 引擎 | three.js 0.187（网页版 3D 打字闯关） |
+| 3D 引擎 | three.js 0.187（网页版 3D 打字闯关）+ Ursina 7.0 / Panda3D 1.10（桌面版） |
 | 状态管理 | Zustand 5 |
 | 后端框架 | FastAPI + SQLAlchemy + Pydantic |
 | 数据库 | SQLite（生产固定 `/www/data/game-backend/code_adventure.db`） |
@@ -352,3 +433,15 @@ MIT License
 ---
 
 <p align="center">Made with ❤️ for young coders · v2.3.0 · 2026-09-10</p>
+
+#### 网页版 · 验收脚本
+
+两个脚本都要先起开发服务器（`.\start-dev.ps1` 或 `npm run dev`）：
+
+```powershell
+node scripts\qa-typing3d.mjs          # 主验收：画面、面板、答题、开门、换关、窄视口
+node scripts\qa-typing3d-fullrun.mjs  # 整轮通关：24 关从头打到尾，再查成绩与排行榜
+```
+
+`qa-typing3d-fullrun.mjs` 会逐关检查「穿门后正好进到下一关」，
+专门盯一次性穿门跳两关这种回归。

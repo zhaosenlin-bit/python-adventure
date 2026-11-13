@@ -4,6 +4,11 @@ process.env.BASELINE_BROWSER_MAPPING_IGNORE_OLD_DATA ??= "true";
 process.env.BROWSERSLIST_IGNORE_OLD_DATA ??= "true";
 
 const nextConfig: NextConfig = {
+    // NEXT_OUTPUT_EXPORT=1 时输出纯静态站点（供桌面版 exe 由后端直接托管）。
+    // 线上部署仍走默认的 standalone/server 模式，不受影响。
+    ...(process.env.NEXT_OUTPUT_EXPORT === '1'
+        ? { output: 'export' as const, images: { unoptimized: true } }
+        : {}),
   // Empty turbopack config to acknowledge we're using Turbopack
   turbopack: {},
   // Needed after upgrading Next 16.2.x: QA scripts hit 127.0.0.1 in dev.

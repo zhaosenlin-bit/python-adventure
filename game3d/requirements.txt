@@ -1,0 +1,4 @@
+# 3D 打字闯关（Ursina）依赖
+# 安装：pip install -r game3d/requirements.txt
+ursina==7.0.0
+# ursina 会自动带上 panda3d（Windows / macOS / Linux 都有对应 wheel）
