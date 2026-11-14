@@ -576,6 +576,28 @@ export default function Typing3DGame() {
         return () => query.removeEventListener("change", handleChange);
     }, []);
 
+    // 手机上软键盘会盖住屏幕下半截，而这个弹层是绝对定位、按布局视口排版的，
+    // 键盘一弹起来，底部的「提交」按钮就跑到键盘后面点不到了。
+    // visualViewport 报的是「真正看得见的高度」，拿它和布局视口一减就知道键盘占了多高，
+    // 然后把弹层顶上来，输入框和提交按钮就都还在拇指够得到的地方。
+    const [keyboardInset, setKeyboardInset] = useState(0);
+    useEffect(() => {
+        if (phase !== "typing") return;
+        const viewport = window.visualViewport;
+        if (!viewport) return;
+        const update = () => {
+            const inset = Math.max(0, window.innerHeight - viewport.height - viewport.offsetTop);
+            setKeyboardInset(inset);
+        };
+        update();
+        viewport.addEventListener("resize", update);
+        viewport.addEventListener("scroll", update);
+        return () => {
+            viewport.removeEventListener("resize", update);
+            viewport.removeEventListener("scroll", update);
+        };
+    }, [phase]);
+
     const handleJoystick = (event: React.PointerEvent<HTMLDivElement>) => {
         const rect = event.currentTarget.getBoundingClientRect();
         const centerX = rect.left + rect.width / 2;
@@ -753,7 +775,10 @@ export default function Typing3DGame() {
 
             {/* ---------------------------------------------------------- 打字框 */}
             {phase === "typing" && currentQuestion && (
-                <div className="absolute inset-0 z-30 flex items-center justify-center bg-[#04060f]/70 p-4 backdrop-blur-sm">
+                <div
+                    className="absolute inset-0 z-30 flex items-center justify-center bg-[#04060f]/70 p-4 backdrop-blur-sm"
+                    style={{ paddingBottom: keyboardInset + 16 }}
+                >
                     <div
                         className={`max-h-[88vh] w-full max-w-xl overflow-y-auto rounded-2xl border bg-[#0c1228]/95 p-4 shadow-2xl transition sm:p-6 ${
                             answerState === "correct"
@@ -762,6 +787,7 @@ export default function Typing3DGame() {
                                   ? "border-rose-400/70 shadow-rose-500/25"
                                   : "border-teal-300/30"
                         }`}
+                        style={{ maxHeight: `calc(100dvh - ${keyboardInset + 32}px)` }}
                     >
                         <div className="mb-4 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-300">
                             <span className="flex items-center gap-2">
