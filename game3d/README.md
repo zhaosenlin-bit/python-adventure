@@ -71,6 +71,9 @@ python game3d/main.py
 启动器会自动挑一个装了 ursina 的 Python：先看环境变量 `GAME3D_PYTHON`，
 再用后端自己的解释器，最后退回 PATH 上的 `python`。
 
+如果本机已经存在打包好的桌面版 exe（`Game3DTyping.exe`，见第 8 节），
+启动器会**优先直接跑那个 exe** —— 别人拿到就能玩，不用装 Python、更不用装 ursina。
+
 ### 自检（不打开窗口）
 
 ```powershell
@@ -183,3 +186,51 @@ python -m pytest game3d/tests -q
 ```
 
 （需要 `pip install pytest`；没有 pytest 时也可以直接 `python game3d/tests/test_questions.py` 运行。）
+
+---
+
+## 8. 打包成独立 exe（随主程序一起发）
+
+主程序 `PythonAdventureIsland.exe` 里**没有** ursina / panda3d，所以桌面版要单独打一个 exe。
+打完之后两个程序互不依赖：谁都不用装 Python。
+
+```powershell
+cd python-adventure
+
+pip install -r game3d/requirements.txt   # ursina
+pip install pyinstaller
+
+python scripts/build_game3d_exe.py
+```
+
+产物：
+
+| 路径 | 说明 |
+| --- | --- |
+| `dist/Game3DTyping/Game3DTyping.exe` | 桌面版主程序（onedir，旁边是 `_internal/`） |
+| `dist/Game3DTyping-win-x64.zip` | 整包压缩，给别人直接解压就能玩 |
+| `dist/PythonAdventureIsland/Game3DTyping/` | 如果主程序已经打过，会自动拷进去一起发 |
+
+如果主程序是在**之后**才打的，再跑一次 `python scripts/build_game3d_exe.py` 即可把桌面版拷进去。
+
+### 启动器怎么找到这个 exe
+
+`backend/app/api/v1/launcher.py` 里的 `_find_exe()` 按顺序找：
+
+1. 环境变量 `GAME3D_EXE` 指定的路径；
+2. 后端进程所在目录（打包后就是主程序 exe 旁边）的 `Game3DTyping/`；
+3. 仓库根目录、`dist/`、`dist/PythonAdventureIsland/` 下的 `Game3DTyping/`。
+
+找到就直接 `Popen` 这个 exe（不再找解释器）；找不到才回退到 `python -m game3d.main`。
+
+### 打包相关的三个文件
+
+| 文件 | 作用 |
+| --- | --- |
+| `scripts/build_game3d_exe.py` | 打包 + 压缩 + 拷进主程序目录，一条命令跑完 |
+| `scripts/game3d.spec` | PyInstaller 配置（收 panda3d 的 dll / 资源、ursina 的模块） |
+| `scripts/game3d_entry.py` | 打包入口：拉起 `game3d.main`，崩溃写 `%TEMP%/game3d-crash.log` |
+
+**Q：打包出来的 exe 双击没反应 / 一闪就没了？**
+A：窗口模式没有控制台，报错都写在 `%TEMP%/game3d-crash.log` 里，先看这个文件。
+另外 `dist/Game3DTyping/` 里的 `_internal/` 必须和 exe 放在一起，不能只拷 exe。
