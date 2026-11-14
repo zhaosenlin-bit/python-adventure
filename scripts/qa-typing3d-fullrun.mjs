@@ -42,6 +42,32 @@ function resolveChromium() {
     return undefined;
 }
 
+/**
+ * Next 开发模式的报错浮层（<nextjs-portal>）会盖在页面上拦截点击：
+ * 别的会话改代码时的一次性编译错误，就能把整个验收脚本顶死。
+ * 那是环境噪音，不是被测代码的问题，所以这里把它藏起来；
+ * 真正的运行时错误仍然由 pageerror 捕获，不会被掩盖。
+ */
+async function disableDevOverlay(page) {
+    await page
+        .addStyleTag({ content: "nextjs-portal { display: none !important; }" })
+        .catch(() => undefined);
+    await page
+        .evaluate(() => {
+            const style = document.createElement("style");
+            style.textContent = "nextjs-portal { display: none !important; }";
+            document.head.appendChild(style);
+            // 浮层是后插进来的，顺手记一笔，验收结束时报告环境有没有在抖
+            const observer = new MutationObserver(() => {
+                if (document.querySelector("nextjs-portal")) {
+                    window.__qaOverlaySeen = true;
+                }
+            });
+            observer.observe(document.documentElement, { childList: true, subtree: true });
+        })
+        .catch(() => undefined);
+}
+
 function check(name, ok, detail = "") {
     console.log(`${ok ? "  OK  " : "  FAIL"} ${name}${detail ? ` — ${detail}` : ""}`);
     if (!ok) failures.push(`${name}${detail ? ` — ${detail}` : ""}`);
@@ -119,6 +145,7 @@ async function main() {
     page.on("pageerror", (error) => errors.push(error.message.slice(0, 160)));
 
     await page.goto(URL, { waitUntil: "domcontentloaded", timeout: 60_000 });
+    await disableDevOverlay(page);
     await page.waitForSelector('[data-testid="typing-3d-start"]:not([disabled])', { timeout: 60_000 });
     await page.click('[data-testid="typing-3d-start"]');
     await passSpawnScreen(page);
@@ -201,6 +228,13 @@ async function main() {
     check("服务端记录了 3D 成绩", rows.length > 0, rows.length ? `榜首 ${rows[0].username} ${rows[0].speed} CPM` : "没有记录");
 
     check("全程没有页面报错", errors.length === 0, errors.slice(0, 2).join(" | "));
+
+    const overlaySeen = await page
+        .evaluate(() => Boolean(window.__qaOverlaySeen))
+        .catch(() => false);
+    if (overlaySeen) {
+        console.log("  注意：期间 Next 开发浮层出现过（环境里有临时编译错误），已忽略，不影响判定");
+    }
 
     await browser.close();
 

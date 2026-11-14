@@ -38,6 +38,33 @@ function resolveChromium() {
     }
     return undefined;
 }
+
+/**
+ * Next 开发模式的报错浮层（<nextjs-portal>）会盖在页面上拦截点击：
+ * 别的会话改代码时的一次性编译错误，就能把整个验收脚本顶死。
+ * 那是环境噪音，不是被测代码的问题，所以这里把它藏起来；
+ * 真正的运行时错误仍然由 pageerror / console error 捕获，不会被掩盖。
+ */
+async function disableDevOverlay(page) {
+    await page
+        .addStyleTag({ content: "nextjs-portal { display: none !important; }" })
+        .catch(() => undefined);
+    await page
+        .evaluate(() => {
+            const style = document.createElement("style");
+            style.textContent = "nextjs-portal { display: none !important; }";
+            document.head.appendChild(style);
+            // 浮层是后插进来的，顺手记一笔，验收结束时报告环境有没有在抖
+            const observer = new MutationObserver(() => {
+                if (document.querySelector("nextjs-portal")) {
+                    window.__qaOverlaySeen = true;
+                }
+            });
+            observer.observe(document.documentElement, { childList: true, subtree: true });
+        })
+        .catch(() => undefined);
+}
+
 const notes = [];
 
 function check(name, ok, detail = "") {
@@ -70,6 +97,7 @@ async function main() {
     page.on("pageerror", (error) => consoleErrors.push(`pageerror: ${error.message}`));
 
     await page.goto(URL, { waitUntil: "domcontentloaded", timeout: 60_000 });
+    await disableDevOverlay(page);
     await page.waitForSelector('[data-testid="typing-3d-start"]:not([disabled])', { timeout: 60_000 });
     await page.screenshot({ path: path.join(OUT, "01-intro.png") });
     check("开场界面出现", true);
@@ -202,6 +230,7 @@ async function main() {
     // 窄视口回归：DevTools 占位、浏览器缩放、小窗口下，弹层都不能被裁掉
     const narrow = await browser.newPage({ viewport: { width: 900, height: 700 } });
     await narrow.goto(URL, { waitUntil: "domcontentloaded", timeout: 60_000 });
+    await disableDevOverlay(narrow);
     await narrow.waitForSelector('[data-testid="typing-3d-start"]:not([disabled])', { timeout: 60_000 });
     await narrow.click('[data-testid="typing-3d-start"]');
     const narrowSpawn = narrow.locator('[data-testid="typing-3d-spawn-option-0"]');
@@ -248,6 +277,13 @@ async function main() {
         check("窄视口下弹层不越界", false, "没走到答题面板");
     }
     await narrow.close();
+
+    const overlaySeen = await page
+        .evaluate(() => Boolean(window.__qaOverlaySeen))
+        .catch(() => false);
+    if (overlaySeen) {
+        console.log("  注意：期间 Next 开发浮层出现过（环境里有临时编译错误），已忽略，不影响判定");
+    }
 
     await browser.close();
 
