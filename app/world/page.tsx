@@ -110,6 +110,9 @@ export default function WorldPage() {
     // 🔥 创意工坊加载状态
     const [isLoadingEditor, setIsLoadingEditor] = useState(false);
 
+    // 🔥 3D 打字闯关加载状态（从开放世界的站点跳过去时用）
+    const [isLoadingTyping3d, setIsLoadingTyping3d] = useState(false);
+
     const { unlockSkill, level: userLevel } = useGameStore();
     const { user, token, isAuthenticated } = useAuthStore();
 
@@ -345,6 +348,15 @@ export default function WorldPage() {
                         router.push('/editor');
                     }, 100);
                     break;
+                case 'typing3d':
+                    // 3D 打字闯关 - 岛上的传送门，跳到网页版 3D 场景
+                    debugLog('[WorldPage] 进入 3D 打字闯关...');
+                    setIsLoadingTyping3d(true);
+                    setTimeout(() => {
+                        // from=world：让 3D 页面知道是从岛里进来的，返回时回岛里
+                        router.push('/typing-3d?from=world');
+                    }, 100);
+                    break;
             }
         };
 
@@ -567,6 +579,18 @@ export default function WorldPage() {
                 </div>
             )}
             
+            {/* 🔥 3D 打字闯关加载提示 */}
+            {isLoadingTyping3d && (
+                <div className="fixed inset-0 z-[100] bg-black/90 flex flex-col items-center justify-center">
+                    <div className="text-6xl mb-4 animate-bounce">⌨️</div>
+                    <div className="text-teal-300 font-pixel text-2xl mb-2">正在进入 3D 打字闯关...</div>
+                    <div className="text-gray-400 text-sm">加载 3D 场景资源中，请稍候</div>
+                    <div className="mt-4 w-48 h-2 bg-gray-700 rounded-full overflow-hidden">
+                        <div className="h-full bg-gradient-to-r from-teal-400 to-cyan-500 animate-pulse rounded-full" style={{ width: '60%' }} />
+                    </div>
+                </div>
+            )}
+
             {/* Phaser游戏场景 */}
             {!showPlatformGame && !showPvPBattle && (
                 <MobileGameWrapper showController={true}>

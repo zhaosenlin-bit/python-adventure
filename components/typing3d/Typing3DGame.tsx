@@ -70,6 +70,16 @@ function formatTime(ms: number): string {
 
 export default function Typing3DGame() {
     const router = useRouter();
+    // 从开放世界的「3D 打字闯关」站点进来时，返回键要回岛里，而不是回落地页。
+    const [fromIsland, setFromIsland] = useState(false);
+    useEffect(() => {
+        if (typeof window === "undefined") return;
+        setFromIsland(new URLSearchParams(window.location.search).get("from") === "world");
+    }, []);
+    const backToLobby = useCallback(() => {
+        router.push(fromIsland ? "/world" : "/");
+    }, [router, fromIsland]);
+    const backLabel = fromIsland ? "返回开放世界" : "返回大厅";
     const containerRef = useRef<HTMLDivElement | null>(null);
     const engineRef = useRef<Typing3DEngine | null>(null);
     const inputRef = useRef<HTMLInputElement | null>(null);
@@ -602,11 +612,11 @@ export default function Typing3DGame() {
                         </p>
                         <button
                             type="button"
-                            onClick={() => router.push("/")}
+                            onClick={backToLobby}
                             className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-teal-300/50 bg-teal-500/25 px-5 py-3 text-sm font-semibold text-teal-50 transition hover:bg-teal-400/35"
                         >
                             <ArrowLeft className="h-4 w-4" />
-                            返回大厅
+                            {backLabel}
                         </button>
                     </div>
                 </div>
@@ -617,7 +627,7 @@ export default function Typing3DGame() {
                 <div className="pointer-events-auto flex items-center gap-2 rounded-xl border border-white/10 bg-[#0a0e27]/80 px-3 py-2 backdrop-blur">
                     <button
                         type="button"
-                        onClick={() => router.push("/")}
+                        onClick={backToLobby}
                         className="flex items-center gap-1.5 whitespace-nowrap rounded-lg px-2 py-1 text-sm text-slate-200 transition hover:bg-white/10 hover:text-white"
                     >
                         <ArrowLeft className="h-4 w-4" />
@@ -904,6 +914,17 @@ export default function Typing3DGame() {
             {phase === "intro" && (
                 <div className="absolute inset-0 z-30 flex items-center justify-center bg-[#04060f]/80 p-4 backdrop-blur-sm">
                     <div className="w-full max-w-lg rounded-2xl border border-teal-300/25 bg-[#0c1228]/95 p-7 text-center shadow-2xl">
+                        {/* 开场页遮住了顶栏，这里单独给一个返回入口 */}
+                        <div className="mb-3 flex justify-end">
+                            <button
+                                type="button"
+                                onClick={backToLobby}
+                                className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 px-3 py-1.5 text-xs text-slate-300 transition hover:bg-white/10 hover:text-white"
+                            >
+                                <ArrowLeft className="h-3.5 w-3.5" />
+                                {backLabel}
+                            </button>
+                        </div>
                         <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-teal-400/15 text-teal-200">
                             <Keyboard className="h-7 w-7" />
                         </div>
@@ -1007,10 +1028,10 @@ export default function Typing3DGame() {
                         <div className="flex gap-2">
                             <button
                                 type="button"
-                                onClick={() => router.push("/")}
+                                onClick={backToLobby}
                                 className="flex-1 rounded-xl border border-white/10 px-4 py-2.5 text-sm transition hover:bg-white/10"
                             >
-                                返回首页
+                                {backLabel}
                             </button>
                             <button
                                 type="button"
@@ -1060,10 +1081,10 @@ export default function Typing3DGame() {
                         <div className="flex gap-2">
                             <button
                                 type="button"
-                                onClick={() => router.push("/")}
+                                onClick={backToLobby}
                                 className="flex-1 rounded-xl border border-white/10 px-4 py-2.5 text-sm transition hover:bg-white/10"
                             >
-                                返回首页
+                                {backLabel}
                             </button>
                             <button
                                 type="button"

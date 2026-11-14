@@ -724,6 +724,16 @@ export class MainScene extends Phaser.Scene {
                 requiredSkills: []
             },
             {
+                // 3D 打字闯关：岛上的传送门，站到跟前按 E/F 直接进入网页版 3D 场景
+                id: 'typing3d',
+                x: 1800,
+                y: groundY - 150,
+                title: '3D 打字闯关',
+                color: 0x35d0c0,
+                emoji: '⌨️',
+                requiredSkills: [] // 人人都能进，不用解锁技能
+            },
+            {
                 id: 'campaign',
                 x: 2100,
                 y: groundY - 300,
