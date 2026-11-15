@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useLayoutEffect, useCallback, useRef } from "react";
 import { useGameStore } from "@/store/gameStore";
 import { useAuthStore } from "@/store/authStore";
 import { useCoinStore } from "@/store/coinStore";
@@ -19,7 +19,7 @@ import { Level } from "@/lib/levels";
 import { getLearningChapter, getLearningCopy, type LearningSubjectId } from "@/lib/learningHub";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { Trophy, LogOut, User, Volume2, VolumeX, Languages, Globe2, BrainCircuit, ExternalLink, Keyboard, Gamepad2, Mountain, Menu, X } from "lucide-react";
+import { Trophy, LogOut, User, Volume2, VolumeX, Languages, Globe2, BrainCircuit, ExternalLink, Keyboard, Gamepad2, Mountain, Menu, ChevronDown, X } from "lucide-react";
 import Footer from "@/components/Footer";
 import CoinBalance from "@/components/ui/CoinBalance";
 import CoinHistory from "@/components/ui/CoinHistory";
@@ -33,6 +33,9 @@ const AI_RESEARCH_URL = "https://research.google/ai-quests/intl/en_us/quest/mark
 const ENGLISH_GAME_URL = "https://www.gamestolearnenglish.com/";
 const MICROSTUDIO_GAME_URL = "https://microstudio.dev/";
 const TYPING_URL = process.env.NEXT_PUBLIC_TYPING_URL || "/typing/index.html";
+
+/** 服务端渲染时没有 window，用 useEffect 兜底，避免 React 报警告。 */
+const useIsomorphicLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect;
 
 export default function Home() {
     const router = useRouter();
@@ -53,6 +56,19 @@ export default function Home() {
     const { language, setLanguage, t } = useI18n();
     const musicInitialized = useRef(false);
     const quickLinksMenuRef = useRef<HTMLDivElement | null>(null);
+    // -------------------------------------------- 顶部入口栏：放不下自动收进「展开」
+    /** 放不下的入口编号（会进「展开」菜单） */
+    const [overflowLinkIds, setOverflowLinkIds] = useState<string[]>([]);
+    /** 「展开」菜单是否打开 */
+    const [showOverflowMenu, setShowOverflowMenu] = useState(false);
+    /** 入口条容器：挂上之后才知道这一栏有多宽 */
+    const [linksAreaEl, setLinksAreaEl] = useState<HTMLDivElement | null>(null);
+    /** 隐藏的测量行：宽度和真实按钮一致，用来算放得下几个入口 */
+    const measureRowRef = useRef<HTMLDivElement | null>(null);
+    const handleLinksAreaRef = useCallback((node: HTMLDivElement | null) => {
+        quickLinksMenuRef.current = node;
+        setLinksAreaEl(node);
+    }, []);
     const tokenValidated = useRef(false); // 🔒 防止重复验证
 
     useEffect(() => {
@@ -126,17 +142,19 @@ export default function Home() {
     }, [isAuthenticated, validateToken, token, loadBalance]);
 
     useEffect(() => {
-        if (!showQuickLinksMenu) return;
+        if (!showQuickLinksMenu && !showOverflowMenu) return;
 
         const handlePointerDown = (event: MouseEvent | TouchEvent) => {
             const target = event.target as Node | null;
             if (quickLinksMenuRef.current && target && !quickLinksMenuRef.current.contains(target)) {
+                setShowOverflowMenu(false);
                 setShowQuickLinksMenu(false);
             }
         };
 
         const handleEscape = (event: globalThis.KeyboardEvent) => {
             if (event.key === 'Escape') {
+                setShowOverflowMenu(false);
                 setShowQuickLinksMenu(false);
             }
         };
@@ -150,7 +168,51 @@ export default function Home() {
             document.removeEventListener('touchstart', handlePointerDown);
             document.removeEventListener('keydown', handleEscape);
         };
-    }, [showQuickLinksMenu]);
+    }, [showQuickLinksMenu, showOverflowMenu]);
+
+    // 量一下横条放得下几个入口：放不下的自动收进「展开」
+    useIsomorphicLayoutEffect(() => {
+        const area = linksAreaEl;
+        const measure = measureRowRef.current;
+        if (!area || !measure) return;
+
+        const GAP = 8; // 对应 gap-2
+        const compute = () => {
+            const available = area.clientWidth;
+            if (available <= 0) return;
+            const items = Array.from(measure.querySelectorAll<HTMLElement>("[data-link-id]"));
+            const widths = items.map((el) => el.getBoundingClientRect().width);
+            const toggle = measure.querySelector<HTMLElement>("[data-overflow-toggle]");
+            const toggleWidth = toggle?.getBoundingClientRect().width ?? 104;
+            const total = widths.reduce((sum, width) => sum + width, 0) + GAP * Math.max(0, widths.length - 1);
+            if (total <= available) {
+                setOverflowLinkIds((prev) => (prev.length === 0 ? prev : []));
+                return;
+            }
+            // 从前往后摆，剩下那点位置要留给「展开」按钮
+            let used = 0;
+            let keep = 0;
+            for (const width of widths) {
+                const next = used + (keep > 0 ? GAP : 0) + width;
+                if (next + GAP + toggleWidth > available) break;
+                used = next;
+                keep += 1;
+            }
+            const ids = items.slice(keep).map((el) => el.getAttribute("data-link-id") || "");
+            setOverflowLinkIds((prev) =>
+                prev.length === ids.length && prev.every((id, index) => id === ids[index]) ? prev : ids,
+            );
+        };
+
+        compute();
+        const observer = new ResizeObserver(compute);
+        observer.observe(area);
+        window.addEventListener("resize", compute);
+        return () => {
+            observer.disconnect();
+            window.removeEventListener("resize", compute);
+        };
+    }, [linksAreaEl]);
 
     // 🔒 验证中显示加载状态
     if (!mounted || isValidating) {
@@ -322,6 +384,60 @@ export default function Home() {
         },
     ] as const;
 
+    // ------------------------------------------- 顶部入口栏：放不下就自动收进「展开」
+    /** 收进「展开」菜单的入口 */
+    const overflowLinks = topQuickLinks.filter((link) => overflowLinkIds.includes(link.id));
+    /** 还留在横条上的入口 */
+    const visibleTopLinks = topQuickLinks.filter((link) => !overflowLinkIds.includes(link.id));
+
+    /** 入口按钮：横条和隐藏测量行共用同一份样式，量出来的宽度才准 */
+    const renderTopLinkButton = (
+        link: (typeof topQuickLinks)[number],
+        options: { measure?: boolean } = {},
+    ) => {
+        const Icon = link.Icon;
+        return (
+            <button
+                key={link.id}
+                type="button"
+                data-link-id={link.id}
+                data-testid={options.measure ? undefined : link.testId}
+                tabIndex={options.measure ? -1 : undefined}
+                onClick={options.measure ? undefined : link.onClick}
+                className={`top-action-cta group inline-flex min-h-[44px] shrink-0 transform-gpu items-center gap-2 rounded-full border px-3 py-2 shadow-lg transition-all duration-200 ease-out hover:-translate-y-0.5 hover:scale-[1.02] hover:text-slate-950 hover:shadow-xl hover:ring-2 active:translate-y-0 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 ${link.buttonClassName}`}
+                title={link.title}
+            >
+                <Icon className={`h-4 w-4 transition-all duration-200 group-hover:scale-110 group-hover:text-slate-950 ${link.iconClassName}`} />
+                <span className="hidden text-sm font-medium xl:inline">{link.label}</span>
+                <ExternalLink className="hidden h-3.5 w-3.5 transition-all duration-200 group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-slate-950 xl:block" />
+            </button>
+        );
+    };
+
+    /** 「展开」按钮：放不下的入口都收进它 */
+    const renderOverflowToggle = (measure: boolean) => (
+        <button
+            key="overflow-toggle"
+            type="button"
+            data-overflow-toggle="true"
+            data-testid={measure ? undefined : 'top-quick-links-overflow-toggle'}
+            tabIndex={measure ? -1 : undefined}
+            onClick={measure ? undefined : () => setShowOverflowMenu((current) => !current)}
+            aria-expanded={showOverflowMenu}
+            aria-haspopup="menu"
+            aria-label="展开更多入口"
+            className="top-action-cta inline-flex min-h-[44px] shrink-0 items-center gap-1.5 rounded-full border border-cyan-400/30 bg-slate-950/70 px-3 py-2 text-cyan-100 shadow-lg shadow-cyan-950/30 transition-colors hover:bg-slate-900/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/70"
+        >
+            <ChevronDown className="h-4 w-4" />
+            <span className="text-sm font-medium">展开</span>
+            <span className="inline-flex min-w-[1.25rem] justify-center rounded-full bg-cyan-400/20 px-1 text-xs font-semibold text-cyan-100">
+                {/* 测量行用两位数占位，量出来的「展开」按钮宽度才不会偏窄 */}
+                {measure ? "99" : overflowLinks.length}
+            </span>
+        </button>
+    );
+
+
     return (
         <main className="min-h-screen bg-gradient-to-b from-[#0a0e27] via-[#1a1e3e] to-[#0a0e27] text-white">
             {/* 🔒 进度同步状态指示器 */}
@@ -351,25 +467,30 @@ export default function Home() {
                     </div>
                     <div className="text-xs sm:text-sm text-slate-400 hidden sm:block">{t('app.welcome', { username: user?.username || '' })}</div>
                 </div>
-                <div className="flex w-full flex-wrap items-center justify-end gap-2 sm:gap-3 lg:w-auto lg:flex-nowrap">
-                    <div ref={quickLinksMenuRef} className="relative">
-                        <div className="hidden items-center gap-2 lg:flex">
-                            {topQuickLinks.map((link) => {
-                                const Icon = link.Icon;
-                                return (
-                                    <button
-                                        key={link.id}
-                                        data-testid={link.testId}
-                                        onClick={link.onClick}
-                                        className={`top-action-cta group inline-flex min-h-[44px] transform-gpu items-center gap-2 rounded-full border px-3 py-2 shadow-lg transition-all duration-200 ease-out hover:-translate-y-0.5 hover:scale-[1.02] hover:text-slate-950 hover:shadow-xl hover:ring-2 active:translate-y-0 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 ${link.buttonClassName}`}
-                                        title={link.title}
-                                    >
-                                        <Icon className={`h-4 w-4 transition-all duration-200 group-hover:scale-110 group-hover:text-slate-950 ${link.iconClassName}`} />
-                                        <span className="hidden text-sm font-medium xl:inline">{link.label}</span>
-                                        <ExternalLink className="hidden h-3.5 w-3.5 transition-all duration-200 group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-slate-950 xl:block" />
-                                    </button>
-                                );
-                            })}
+                <div className="flex w-full flex-wrap items-center justify-end gap-2 sm:gap-3 lg:w-auto lg:min-w-0 lg:flex-1 lg:flex-nowrap">
+                    <div
+                        ref={handleLinksAreaRef}
+                        className="relative lg:min-w-0 lg:flex-1"
+                    >
+                        {/* 隐藏的测量行：宽度和真实按钮一致，用来算这一栏放得下几个入口。
+                            外层是个 0×0 的裁剪壳，测量行再宽也不会把页面撑出横向滚动条。 */}
+                        <div
+                            aria-hidden="true"
+                            data-qa-measure="true"
+                            className="pointer-events-none absolute left-0 top-0 h-0 w-0 overflow-clip"
+                        >
+                        <div
+                            ref={measureRowRef}
+                            className="invisible flex w-max items-center gap-2"
+                        >
+                            {topQuickLinks.map((link) => renderTopLinkButton(link, { measure: true }))}
+                            {renderOverflowToggle(true)}
+                        </div>
+                        </div>
+                        {/* 桌面端横条：放不下的入口自动进「展开」 */}
+                        <div data-top-links-row="true" className="hidden items-center gap-2 lg:flex lg:min-w-0 lg:justify-end">
+                            {visibleTopLinks.map((link) => renderTopLinkButton(link))}
+                            {overflowLinks.length > 0 && renderOverflowToggle(false)}
                         </div>
                         <button
                             type="button"
@@ -397,6 +518,37 @@ export default function Home() {
                                                 onClick={() => {
                                                     link.onClick();
                                                     setShowQuickLinksMenu(false);
+                                                }}
+                                                className={`top-action-cta group inline-flex min-h-[48px] w-full items-center justify-between gap-3 rounded-2xl border px-3 py-3 text-left shadow-lg transition-all duration-200 ease-out hover:text-slate-950 hover:shadow-xl hover:ring-2 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 ${link.buttonClassName}`}
+                                                title={link.title}
+                                            >
+                                                <span className="flex items-center gap-3">
+                                                    <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-950/25 ring-1 ring-white/10">
+                                                        <Icon className={`h-4 w-4 transition-all duration-200 group-hover:scale-110 group-hover:text-slate-950 ${link.iconClassName}`} />
+                                                    </span>
+                                                    <span className="text-sm font-medium">{link.label}</span>
+                                                </span>
+                                                <ExternalLink className="h-4 w-4 opacity-80 transition-all duration-200 group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-slate-950" />
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
+                        {showOverflowMenu && overflowLinks.length > 0 && (
+                            <div className="absolute right-0 top-[calc(100%+0.6rem)] z-50 hidden w-[min(18rem,calc(100vw-1.5rem))] rounded-2xl border border-cyan-400/20 bg-[#061225] p-3 shadow-[0_24px_60px_rgba(2,12,27,0.75)] lg:block">
+                                <div className="mb-2 px-1 text-[11px] uppercase tracking-[0.2em] text-cyan-200/70">更多入口</div>
+                                <div className="flex flex-col gap-2">
+                                    {overflowLinks.map((link) => {
+                                        const Icon = link.Icon;
+                                        return (
+                                            <button
+                                                key={`${link.id}-overflow`}
+                                                type="button"
+                                                data-testid={`${link.testId}-overflow`}
+                                                onClick={() => {
+                                                    link.onClick();
+                                                    setShowOverflowMenu(false);
                                                 }}
                                                 className={`top-action-cta group inline-flex min-h-[48px] w-full items-center justify-between gap-3 rounded-2xl border px-3 py-3 text-left shadow-lg transition-all duration-200 ease-out hover:text-slate-950 hover:shadow-xl hover:ring-2 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 ${link.buttonClassName}`}
                                                 title={link.title}

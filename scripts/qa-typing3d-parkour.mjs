@@ -107,12 +107,23 @@ async function main() {
 
     // ------------------------------------------------------------ 跑酷：跳得起来
     await page.evaluate(() => window.__typing3d.jump());
-    await page.waitForTimeout(260);
-    const jumped = await page.evaluate(() => window.__typing3d.player());
-    check("空格能跳起来", jumped.y > 0.4, `y=${Number(jumped.y).toFixed(2)}`);
-    await page.waitForTimeout(2200);
-    const landed = await page.evaluate(() => window.__typing3d.player());
-    check("跳完会落回地面", landed.y < 0.2 && landed.grounded, `y=${Number(landed.y).toFixed(2)}`);
+    // 跳跃时长受帧率影响（软件渲染下会变慢），所以边跳边采样，不写死等待时长
+    let peak = 0;
+    let landed = null;
+    let airborne = false;
+    for (let i = 0; i < 80; i += 1) {
+        const p = await page.evaluate(() => window.__typing3d.player());
+        peak = Math.max(peak, p.y);
+        if (!p.grounded) airborne = true;
+        // 先离地、再重新落地，才算跳完整一轮
+        if (airborne && p.grounded && p.y < 0.2) {
+            landed = p;
+            break;
+        }
+        await page.waitForTimeout(100);
+    }
+    check("空格能跳起来", peak > 0.4, `最高 y=${peak.toFixed(2)}`);
+    check("跳完会落回地面", Boolean(landed), landed ? `y=${Number(landed.y).toFixed(2)}` : "8 秒内没落回地面");
     await page.screenshot({ path: path.join(OUT, "parkour-01-jump.png") });
 
     // ------------------------------------------------------------ 平台能站人
