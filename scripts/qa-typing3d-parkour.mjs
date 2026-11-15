@@ -133,6 +133,19 @@ async function main() {
             onPlatform.grounded && Math.abs(onPlatform.y - platformTop) < 0.12,
             `y=${Number(onPlatform.y).toFixed(2)}（平台面 ${platformTop.toFixed(2)}）`,
         );
+
+        // 切到第一人称：镜头也得跟着升高，不能卡在平台下面
+        await page.keyboard.press("v");
+        await page.waitForTimeout(900);
+        const firstPerson = await page.evaluate(() => window.__typing3d.player());
+        check(
+            "第一人称下依然站在平台上",
+            firstPerson.grounded && Math.abs(firstPerson.y - platformTop) < 0.12,
+            `y=${Number(firstPerson.y).toFixed(2)}`,
+        );
+        await page.screenshot({ path: path.join(OUT, "parkour-01c-first-person.png") });
+        await page.keyboard.press("v");
+        await page.waitForTimeout(600);
     }
 
     const pad = await page.evaluate(() => {
