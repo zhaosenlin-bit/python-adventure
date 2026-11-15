@@ -7,7 +7,14 @@
 
 import * as THREE from "three";
 
-import type { BoxSpec, LevelLayout, PanelSpec, SpawnOption, Typing3DItem } from "@/lib/typing3d/types";
+import type {
+    BoxSpec,
+    EasterEggSpec,
+    LevelLayout,
+    PanelSpec,
+    SpawnOption,
+    Typing3DItem,
+} from "@/lib/typing3d/types";
 
 export type EngineView = "third" | "first";
 
@@ -20,6 +27,10 @@ export interface EngineCallbacks {
     onSpawnPick?: (index: number) => void;
     /** 玩家直接点了答题面板（不用走近，远处点一下也能开）。 */
     onPanelClick?: () => void;
+    /** 玩家碰到了彩蛋（空中的问号方块 / 跑酷顶端的祭坛）。 */
+    onEasterEgg?: (egg: EasterEggSpec, kind: "cube" | "altar") => void;
+    /** 玩家踩到了弹跳板。 */
+    onBouncePad?: () => void;
 }
 
 export interface EngineInput {
@@ -32,6 +43,24 @@ const PLAYER_RADIUS = 0.45;
 const WALK_SPEED = 6.2;
 const RUN_SPEED = 9.4;
 const ACCELERATION = 12;
+/** 角色的身高：用来判断能不能从方块底下钻过去。 */
+const PLAYER_HEIGHT = 1.9;
+/** 重力加速度（单位/秒²）。 */
+const GRAVITY = 26;
+/** 起跳速度：一次能跳 2.1 米高。 */
+const JUMP_VELOCITY = 10.6;
+/** 最多能跳两次：地面一次 + 空中再蹬一次。 */
+const MAX_JUMPS = 2;
+/** 离开地面后的宽容期：这段时间里仍然可以起跳。 */
+const COYOTE_TIME = 0.12;
+/** 跳跃缓冲：落地前按了空格，落地那一瞬间自动起跳。 */
+const JUMP_BUFFER = 0.14;
+/** 弹跳板的弹射速度（约 2.8 米高）。 */
+const BOUNCE_VELOCITY = 12;
+/** 自动上台阶的容差：没到这个高度就得跳一下。 */
+const STEP_UP = 0.36;
+/** 下落速度上限，防止穿过地面。 */
+const MAX_FALL_SPEED = 34;
 const PANEL_REACH = 3.4;
 const CAMERA_DISTANCE = 8.2;
 const CAMERA_HEIGHT = 5.4;
@@ -317,6 +346,24 @@ export class Typing3DEngine {
     private spawnPickEnabled = false;
     private pointerDownAt = { x: 0, y: 0 };
     private input: EngineInput = { forward: 0, right: 0, run: false };
+    /** 竖直方向的速度（重力、起跳、弹射都在这里）。 */
+    private verticalVelocity = 0;
+    /** 是不是踩在地面 / 平台上。 */
+    private grounded = true;
+    /** 还能在空中蹬几次。 */
+    private jumpsLeft = MAX_JUMPS;
+    /** 离开地面后的宽容期。 */
+    private coyoteTimer = 0;
+    /** 跳跃缓冲：按早了也认。 */
+    private jumpBufferTimer = 0;
+    /** 本关已经收集的彩蛋编号。 */
+    private collectedEggs = new Set<number>();
+    /** 彩蛋模型（动画和拾取判定都要用）。 */
+    private eggMeshes: Array<{ mesh: THREE.Object3D; spec: EasterEggSpec }> = [];
+    /** 弹跳板是否还能再弹：踩上去弹一次，落地不再连着弹。 */
+    private bounceArmed = true;
+    /** 弹跳板（踩上去时闪一下）。 */
+    private bouncePads: Array<{ group: THREE.Group; glow: THREE.Mesh }> = [];
 
     private readonly floorTexture = makeFloorTexture();
     private readonly glowTexture = makeGlowTexture();
@@ -359,12 +406,31 @@ export class Typing3DEngine {
         (window as unknown as { __typing3d?: unknown }).__typing3d = {
             panel: () => this.layout?.panels[0] ?? null,
             door: () => this.layout?.door ?? null,
-            player: () => ({ x: this.position.x, z: this.position.z }),
+            player: () => ({
+                x: this.position.x,
+                y: this.position.y,
+                z: this.position.z,
+                grounded: this.grounded,
+            }),
+            jump: () => this.requestJump(),
+            eggs: () => this.layout?.eggs ?? [],
+            layout: () => this.layout ?? null,
+            collected: () => Array.from(this.collectedEggs),
             input: () => ({ ...this.input }),
             yaw: () => this.yaw,
             teleport: (x: number, z: number) => {
                 this.position.set(x, 0, z);
                 this.velocity.set(0, 0, 0);
+            },
+            // 传送到空中（自动化验收跑酷用）
+            teleportTo: (x: number, y: number, z: number) => {
+                const safeX = Number.isFinite(x) ? x : 0;
+                const safeY = Number.isFinite(y) ? y : 0;
+                const safeZ = Number.isFinite(z) ? z : 0;
+                this.position.set(safeX, safeY, safeZ);
+                this.velocity.set(0, 0, 0);
+                this.verticalVelocity = 0;
+                this.grounded = false;
             },
             faceTowards: (x: number, z: number) => {
                 this.yaw = Math.atan2(-(x - this.position.x), -(z - this.position.z));
@@ -505,6 +571,11 @@ export class Typing3DEngine {
         this.input = { ...this.input, ...input };
     }
 
+    /** 请求起跳：空格键 / 手机上的跳跃按钮都走这里。 */
+    requestJump(): void {
+        this.jumpBufferTimer = JUMP_BUFFER;
+    }
+
     setView(view: EngineView): void {
         this.view = view;
     }
@@ -541,6 +612,9 @@ export class Typing3DEngine {
         this.levelGroup = new THREE.Group();
         this.scene.add(this.levelGroup);
         this.blockers = [];
+        this.collectedEggs.clear();
+        this.eggMeshes = [];
+        this.bouncePads = [];
 
         this.scene.background = makeGradientTexture(
             new THREE.Color(layout.theme.fog).offsetHSL(0, 0, 0.08).getHex(),
@@ -551,12 +625,20 @@ export class Typing3DEngine {
         this.buildFloor(layout);
         this.buildBoxes(layout);
         this.buildBraziers(layout);
+        this.buildPlatforms(layout);
+        this.buildEasterEggs(layout);
         this.buildPanel(layout, item);
         this.buildDoor(layout);
         this.levelGroup.updateMatrixWorld(true);
 
         this.position.set(layout.spawn.x, 0, layout.spawn.z);
         this.velocity.set(0, 0, 0);
+        this.verticalVelocity = 0;
+        this.grounded = true;
+        this.jumpsLeft = MAX_JUMPS;
+        this.coyoteTimer = 0;
+        this.jumpBufferTimer = 0;
+        this.bounceArmed = true;
         // 一进场就朝着答题面板，玩家一眼能看见目标
         const panel = layout.panels[0];
         this.yaw = Math.atan2(
@@ -710,6 +792,31 @@ export class Typing3DEngine {
         return sprite;
     }
 
+    /** 一个只有字、没有底框的小标记（彩蛋上的问号用）。 */
+    private makeMarkSprite(text: string, color: THREE.Color): THREE.Sprite {
+        const canvas = document.createElement("canvas");
+        canvas.width = 256;
+        canvas.height = 256;
+        const context = canvas.getContext("2d");
+        if (context) {
+            context.clearRect(0, 0, canvas.width, canvas.height);
+            context.font = 'bold 190px system-ui, "Segoe UI", sans-serif';
+            context.textAlign = "center";
+            context.textBaseline = "middle";
+            context.shadowColor = "rgba(20, 10, 0, 0.6)";
+            context.shadowBlur = 22;
+            context.fillStyle = `#${color.getHexString()}`;
+            context.fillText(text, canvas.width / 2, canvas.height / 2 + 6);
+        }
+        const texture = new THREE.CanvasTexture(canvas);
+        texture.colorSpace = THREE.SRGBColorSpace;
+        const sprite = new THREE.Sprite(
+            new THREE.SpriteMaterial({ map: texture, transparent: true, depthWrite: false }),
+        );
+        sprite.scale.set(0.62, 0.62, 1);
+        return sprite;
+    }
+
     private buildFloor(layout: LevelLayout): void {
         const floorColor = new THREE.Color(layout.theme.floor).offsetHSL(0, 0, 0.05);
         const geometry = new THREE.PlaneGeometry(layout.width, layout.depth);
@@ -764,6 +871,144 @@ export class Typing3DEngine {
             );
             trim.position.set(box.x, box.height + 0.05, box.z);
             this.levelGroup.add(trim);
+        }
+    }
+
+/** 跑酷平台 + 弹跳板。 */
+    private buildPlatforms(layout: LevelLayout): void {
+        const slabMaterial = new THREE.MeshStandardMaterial({
+            color: new THREE.Color(layout.theme.wall).offsetHSL(0, 0, 0.24),
+            roughness: 0.72,
+        });
+        const edgeMaterial = new THREE.MeshStandardMaterial({
+            color: layout.theme.glow,
+            emissive: new THREE.Color(layout.theme.glow),
+            emissiveIntensity: 0.75,
+            roughness: 0.35,
+        });
+
+        for (const platform of layout.platforms ?? []) {
+            const baseY = platform.baseY ?? 0;
+            const mesh = new THREE.Mesh(
+                new THREE.BoxGeometry(platform.width, platform.height, platform.depth),
+                slabMaterial,
+            );
+            mesh.position.set(platform.x, baseY + platform.height / 2, platform.z);
+            this.levelGroup.add(mesh);
+            this.blockers.push(mesh);
+
+            // 边沿发光：远处也能看清该往哪儿跳
+            const edge = new THREE.Mesh(
+                new THREE.BoxGeometry(platform.width + 0.08, 0.12, platform.depth + 0.08),
+                edgeMaterial,
+            );
+            edge.position.set(platform.x, baseY + platform.height + 0.06, platform.z);
+            this.levelGroup.add(edge);
+        }
+
+        // 弹跳板：矮墩 + 发光顶面
+        for (const pad of layout.boxes.filter((box) => box.kind === "bounce")) {
+            const group = new THREE.Group();
+            const base = new THREE.Mesh(
+                new THREE.BoxGeometry(pad.width, pad.height, pad.depth),
+                new THREE.MeshStandardMaterial({ color: 0x3c2350, roughness: 0.8 }),
+            );
+            base.position.y = pad.height / 2;
+            group.add(base);
+
+            const glow = new THREE.Mesh(
+                new THREE.BoxGeometry(pad.width * 0.78, 0.1, pad.depth * 0.78),
+                new THREE.MeshBasicMaterial({ color: 0xff7ad9, transparent: true }),
+            );
+            glow.position.y = pad.height + 0.05;
+            group.add(glow);
+
+            group.position.set(pad.x, 0, pad.z);
+            this.levelGroup.add(group);
+            this.bouncePads.push({ group, glow });
+        }
+    }
+
+    /** 彩蛋：空中浮动的问号方块 + 跑酷顶端的祭坛。 */
+    private buildEasterEggs(layout: LevelLayout): void {
+        for (const egg of layout.eggs ?? []) {
+            const group = new THREE.Group();
+
+            if (egg.kind === "altar") {
+                const ring = new THREE.Mesh(
+                    new THREE.TorusGeometry(1.15, 0.1, 12, 36),
+                    new THREE.MeshBasicMaterial({ color: 0xffd76a }),
+                );
+                ring.rotation.x = Math.PI / 2;
+                group.add(ring);
+
+                const obelisk = new THREE.Mesh(
+                    new THREE.OctahedronGeometry(0.52, 0),
+                    new THREE.MeshStandardMaterial({
+                        color: 0xffe9a8,
+                        emissive: new THREE.Color(0xffc94d),
+                        emissiveIntensity: 1.2,
+                        roughness: 0.25,
+                    }),
+                );
+                obelisk.position.y = 0.72;
+                group.add(obelisk);
+
+                const light = new THREE.PointLight(0xffc94d, 1.5, 10);
+                light.position.y = 1;
+                group.add(light);
+            } else {
+                const cube = new THREE.Mesh(
+                    new THREE.BoxGeometry(0.78, 0.78, 0.78),
+                    new THREE.MeshStandardMaterial({
+                        color: 0xfff1c9,
+                        emissive: new THREE.Color(0xffc94d),
+                        emissiveIntensity: 0.95,
+                        roughness: 0.35,
+                    }),
+                );
+                group.add(cube);
+
+                const mark = this.makeMarkSprite("?", new THREE.Color(0x6b3f04));
+                mark.position.y = 0.02;
+                group.add(mark);
+
+                const halo = new THREE.Sprite(
+                    new THREE.SpriteMaterial({
+                        map: this.glowTexture,
+                        color: 0xffd76a,
+                        transparent: true,
+                        depthWrite: false,
+                        blending: THREE.AdditiveBlending,
+                    }),
+                );
+                halo.scale.set(3.4, 3.4, 1);
+                group.add(halo);
+
+                const light = new THREE.PointLight(0xffd76a, 0.9, 7);
+                group.add(light);
+            }
+
+            group.position.set(egg.x, egg.y, egg.z);
+            this.levelGroup.add(group);
+            this.eggMeshes.push({ mesh: group, spec: egg });
+        }
+    }
+
+    /** 彩蛋判定：碰到就收集，收集后隐藏。 */
+    private updateEasterEggs(): void {
+        for (const entry of this.eggMeshes) {
+            if (this.collectedEggs.has(entry.spec.id)) continue;
+            const egg = entry.spec;
+            const radius = egg.kind === "altar" ? 2.3 : 1.2;
+            const dx = this.position.x - egg.x;
+            const dy = this.position.y + 0.9 - egg.y;
+            if (!Number.isFinite(dy)) continue;
+            const dz = this.position.z - egg.z;
+            if (Math.hypot(dx, dy, dz) > radius) continue;
+            this.collectedEggs.add(egg.id);
+            entry.mesh.visible = false;
+            this.callbacks.onEasterEgg?.(egg, egg.kind);
         }
     }
 
@@ -1013,11 +1258,47 @@ export class Typing3DEngine {
         this.player.add(shadow);
     }
 
+    /** 脚下能踩到的最高平面（地面算 0）。 */
+    private supportHeight(nextY?: number): { height: number; box: BoxSpec | null } {
+        const layout = this.layout;
+        let best = 0;
+        let bestBox: BoxSpec | null = null;
+        if (!layout) return { height: best, box: bestBox };
+        // 正在往下落：这一帧会穿过的平台也算脚下，不然会从平台里掉穿过去
+        const falling = nextY !== undefined && nextY < this.position.y;
+        const candidates = [...layout.boxes, ...(layout.platforms ?? [])];
+        for (const box of candidates) {
+            const top = (box.baseY ?? 0) + box.height;
+            if (top <= best + 0.001) continue;
+            // 太高了踩不上去，得先跳
+            if (top > this.position.y + STEP_UP) {
+                // 正在往这一层下落：仍然算脚下（不然会穿过去）
+                if (!falling || nextY === undefined || top > nextY) continue;
+            }
+            const overlapX =
+                Math.abs(this.position.x - box.x) <= box.width / 2 + PLAYER_RADIUS * 0.5;
+            const overlapZ =
+                Math.abs(this.position.z - box.z) <= box.depth / 2 + PLAYER_RADIUS * 0.5;
+            if (!overlapX || !overlapZ) continue;
+            best = top;
+            bestBox = box;
+        }
+        return { height: best, box: bestBox };
+    }
+
     /** 玩家撞到方块时把它推出去。 */
     private resolveCollisions(): void {
         const layout = this.layout;
         if (!layout) return;
-        for (const box of layout.boxes) {
+        for (const box of [...layout.boxes, ...(layout.platforms ?? [])]) {
+            const baseY = box.baseY ?? 0;
+            const topY = baseY + box.height;
+            // 悬空平台是「单向」的：可以从下面跳穿上去，落下来才会踩住
+            if (box.kind === "platform") continue;
+            // 站在方块顶上：随便走
+            if (this.position.y >= topY - 0.02) continue;
+            // 从方块底下钻过去：也放行
+            if (baseY >= this.position.y + PLAYER_HEIGHT - 0.02) continue;
             const halfWidth = box.width / 2;
             const halfDepth = box.depth / 2;
             const closestX = Math.max(box.x - halfWidth, Math.min(this.position.x, box.x + halfWidth));
@@ -1027,6 +1308,11 @@ export class Typing3DEngine {
             const distance = Math.hypot(deltaX, deltaZ);
 
             if (distance >= PLAYER_RADIUS) continue;
+            // 小台阶（弹跳板、矮沿）：直接踩上去，而不是把玩家推开
+            if (this.grounded && topY > this.position.y && topY - this.position.y <= STEP_UP) {
+                this.position.y = topY;
+                continue;
+            }
 
             if (distance > 0.0001) {
                 const push = (PLAYER_RADIUS - distance) / distance;
@@ -1088,7 +1374,7 @@ export class Typing3DEngine {
         }
 
         if (this.view === "first") {
-            this.camera.position.set(this.position.x, 1.62, this.position.z);
+            this.camera.position.set(this.position.x, this.position.y + 1.62, this.position.z);
             const look = new THREE.Vector3(
                 -Math.sin(this.yaw) * Math.cos(this.pitch),
                 Math.sin(this.pitch),
@@ -1178,7 +1464,71 @@ export class Typing3DEngine {
         const blend = Math.min(1, ACCELERATION * delta);
         this.velocity.lerp(target, blend);
 
+        // ---- 跳跃：地面一次 + 空中再蹬一次 ----
+        if (this.grounded) {
+            this.coyoteTimer = COYOTE_TIME;
+        } else {
+            this.coyoteTimer = Math.max(0, this.coyoteTimer - delta);
+        }
+        this.jumpBufferTimer = Math.max(0, this.jumpBufferTimer - delta);
+        if (this.jumpBufferTimer > 0) {
+            if (this.grounded || this.coyoteTimer > 0) {
+                this.verticalVelocity = JUMP_VELOCITY;
+                this.grounded = false;
+                this.coyoteTimer = 0;
+                this.jumpsLeft = MAX_JUMPS - 1;
+                this.jumpBufferTimer = 0;
+            } else if (this.jumpsLeft > 0) {
+                this.verticalVelocity = JUMP_VELOCITY * 0.92;
+                this.jumpsLeft = 0;
+                this.jumpBufferTimer = 0;
+            }
+        }
+
+        // ---- 水平移动 ----
         this.position.addScaledVector(this.velocity, delta);
+
+        // 万一算出非法值（NaN），把玩家放回出生点，别让整个场景卡死
+        if (
+            !Number.isFinite(this.position.x) ||
+            !Number.isFinite(this.position.y) ||
+            !Number.isFinite(this.position.z)
+        ) {
+            const spawn = this.layout?.spawn;
+            this.position.set(spawn?.x ?? 0, 0, spawn?.z ?? 0);
+            this.velocity.set(0, 0, 0);
+            this.verticalVelocity = 0;
+            this.grounded = true;
+        }
+
+        // ---- 竖直积分 + 落地 ----
+        this.verticalVelocity = Math.max(
+            -MAX_FALL_SPEED,
+            this.verticalVelocity - GRAVITY * delta,
+        );
+        const nextY = this.position.y + this.verticalVelocity * delta;
+        const support = this.supportHeight(nextY);
+        this.position.y = nextY;
+        const onBouncePad = support.box?.kind === "bounce";
+        // 不在弹跳板上时重新武装：走下来再踩上去还能再弹一次
+        if (!onBouncePad) this.bounceArmed = true;
+        if (this.position.y <= support.height && this.verticalVelocity <= 0) {
+            this.position.y = support.height;
+            this.verticalVelocity = 0;
+            this.grounded = true;
+            this.jumpsLeft = MAX_JUMPS;
+            if (onBouncePad && this.bounceArmed) {
+                // 弹跳板：直接给一个向上的冲量
+                this.bounceArmed = false;
+                this.verticalVelocity = BOUNCE_VELOCITY;
+                this.grounded = false;
+                this.jumpsLeft = 1;
+                this.callbacks.onBouncePad?.();
+            }
+        } else {
+            this.grounded = false;
+        }
+
         this.resolveCollisions();
 
         this.walking = this.velocity.lengthSq() > 0.6;
@@ -1207,6 +1557,18 @@ export class Typing3DEngine {
     }
 
     private updateAnimations(delta: number, elapsed: number): void {
+        // 彩蛋：自转 + 上下浮动
+        this.eggMeshes.forEach((entry, index) => {
+            entry.mesh.rotation.y += delta * 1.1;
+            entry.mesh.position.y = entry.spec.y + Math.sin(elapsed * 2 + index) * 0.18;
+        });
+
+        // 弹跳板：一直呼吸，踩上去时更亮
+        this.bouncePads.forEach((pad) => {
+            const material = pad.glow.material as THREE.MeshBasicMaterial;
+            material.opacity = 0.7 + Math.sin(elapsed * 6) * 0.3;
+        });
+
         this.playerModel.children.forEach((child) => {
             if (!(child instanceof THREE.Mesh) || !(child.geometry instanceof THREE.BoxGeometry)) return;
             const height = (child.geometry.parameters as { height?: number }).height ?? 0;
@@ -1257,6 +1619,7 @@ export class Typing3DEngine {
         this.updateMovement(delta);
         this.updateCamera(delta);
         this.updateNearPanel();
+        this.updateEasterEggs();
         this.updateAnimations(delta, elapsed);
         this.checkDoor();
 

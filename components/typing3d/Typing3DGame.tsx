@@ -12,6 +12,8 @@ import { useRouter } from "next/navigation";
 import {
     ArrowLeft,
     Check,
+    ChevronUp,
+    Egg,
     Keyboard,
     Loader2,
     RotateCcw,
@@ -32,7 +34,8 @@ import {
     targetFor,
 } from "@/lib/typing3d/bank";
 import { buildLevel } from "@/lib/typing3d/level";
-import type { Typing3DInputMode, Typing3DQuestion } from "@/lib/typing3d/types";
+import { eggHint, pickEggText } from "@/lib/typing3d/eggs";
+import type { EasterEggSpec, Typing3DInputMode, Typing3DQuestion } from "@/lib/typing3d/types";
 import { useAuthStore } from "@/store/authStore";
 import { Typing3DEngine, WebGLUnavailableError, type EngineView } from "./engine";
 
@@ -85,6 +88,7 @@ export default function Typing3DGame() {
     const inputRef = useRef<HTMLInputElement | null>(null);
     const keysRef = useRef<Set<string>>(new Set());
     const levelIndexRef = useRef(0);
+    const inputModeRef = useRef<Typing3DInputMode>("pinyin");
     const questionsRef = useRef<Typing3DQuestion[]>([]);
     const phaseRef = useRef<Phase>("intro");
     const joystickRef = useRef({ x: 0, y: 0 });
@@ -223,6 +227,20 @@ export default function Typing3DGame() {
     }, [phase]);
     const [selectedSpawn, setSelectedSpawn] = useState<number | null>(null);
 
+    // 彩蛋：空中的问号方块 / 跑酷顶端的祭坛，捡到就送一句文案 + 一个提示
+    const [eggToast, setEggToast] = useState<{
+        key: string;
+        text: string;
+        hint: string;
+        kind: "cube" | "altar";
+    } | null>(null);
+    /** 这一局一共捡到几个彩蛋。 */
+    const [eggsFound, setEggsFound] = useState(0);
+    /** 当前这一关捡到几个。 */
+    const [levelEggs, setLevelEggs] = useState(0);
+    /** 彩蛋换来的提示，显示在打字窗口里。 */
+    const [hint, setHint] = useState("");
+
     phaseRef.current = phase;
     levelIndexRef.current = levelIndex;
     questionsRef.current = questions;
@@ -307,6 +325,23 @@ export default function Typing3DGame() {
                 onNearPanel: (panel) => setNearPanel(Boolean(panel)),
                 onSpawnPick: (index) => setSelectedSpawn(index),
                 onPanelClick: () => openTypingRef.current(),
+                onEasterEgg: (egg: EasterEggSpec, kind: "cube" | "altar") => {
+                    const level = levelIndexRef.current;
+                    const seed = hashString(`typing3d:${dateKeyFor(new Date())}`);
+                    const text = pickEggText(seed, level, egg.id, kind);
+                    const question = questionsRef.current[level];
+                    const hintText = question
+                        ? eggHint(targetFor(question, inputModeRef.current), kind)
+                        : "";
+                    const key = `${level}-${egg.id}`;
+                    setEggToast({ key, text, hint: hintText, kind });
+                    setHint(hintText);
+                    setEggsFound((count) => count + 1);
+                    setLevelEggs((count) => count + 1);
+                    window.setTimeout(() => {
+                        setEggToast((current) => (current?.key === key ? null : current));
+                    }, 4600);
+                },
                 onReachDoor: () => {
                     if (phaseRef.current !== "playing") return;
                     setPhase("transition");
@@ -355,6 +390,9 @@ export default function Typing3DGame() {
         setNearPanel(false);
         setTyped("");
         setAnswerState("idle");
+        setLevelEggs(0);
+        setEggToast(null);
+        setHint("");
     }, [engineReady, levelIndex, currentQuestion, layout]);
 
     // 出生点选择界面：摆出光环、把镜头拉高；离开这一阶段就把光环收掉
@@ -380,6 +418,7 @@ export default function Typing3DGame() {
     // 中文题切换拼音模式时，面板上的字跟着换（不用重开一关）
     useEffect(() => {
         engineRef.current?.setPinyinMode(inputMode === "pinyin");
+        inputModeRef.current = inputMode;
     }, [inputMode]);
 
     // ---------------------------------------------------------------- 计时
@@ -490,6 +529,11 @@ export default function Typing3DGame() {
             if (phaseRef.current === "typing") return;
             const key = event.key.toLowerCase();
             keysRef.current.add(key);
+            if (event.code === "Space" && phaseRef.current === "playing") {
+                // 空格跳跃：地面一次，空中还能再蹬一次
+                event.preventDefault();
+                engineRef.current?.requestJump();
+            }
             if (key === "e" && phaseRef.current === "playing" && nearPanel) {
                 event.preventDefault();
                 openTyping();
@@ -662,6 +706,15 @@ export default function Typing3DGame() {
                 </div>
 
                 <div className="pointer-events-auto flex items-center gap-2 whitespace-nowrap rounded-xl border border-white/10 bg-[#0a0e27]/80 px-2.5 py-2 text-[11px] text-slate-200 backdrop-blur sm:px-3 sm:text-xs">
+                    <span
+                        data-testid="typing-3d-eggs"
+                        title={`本关已找到 ${levelEggs} 个彩蛋`}
+                        className="flex items-center gap-1 text-amber-200"
+                    >
+                        <Egg className="h-3.5 w-3.5" />
+                        彩蛋 {eggsFound}
+                    </span>
+                    <span className="text-white/20">|</span>
                     <span className="tabular-nums">{formatTime(elapsed)}</span>
                     <span className="text-white/20">|</span>
                     <span>正确率 {accuracyNow}%</span>
@@ -669,6 +722,47 @@ export default function Typing3DGame() {
                     <span>连击 x{stats.combo}</span>
                 </div>
             </header>
+
+            {/* ---------------------------------------------------------- 彩蛋弹窗 */}
+            {eggToast && (
+                <div
+                    data-testid="typing-3d-egg-toast"
+                    data-egg-key={eggToast.key}
+                    className="pointer-events-none absolute inset-x-0 top-24 z-30 flex justify-center px-4"
+                >
+                    <div className="max-w-md rounded-2xl border border-amber-300/40 bg-[#241a06]/95 px-5 py-3 shadow-2xl backdrop-blur">
+                        <p className="flex items-center gap-2 text-xs font-semibold text-amber-200">
+                            <Egg className="h-4 w-4" />
+                            {eggToast.kind === "altar"
+                                ? "跑酷顶端 · 找到隐藏祭坛"
+                                : "发现彩蛋"}
+                        </p>
+                        <p className="mt-1 text-sm text-amber-50/90">{eggToast.text}</p>
+                        {eggToast.hint && (
+                            <p className="mt-2 flex items-center gap-1.5 rounded-lg bg-amber-400/15 px-2.5 py-1.5 text-xs text-amber-100">
+                                <Sparkles className="h-3.5 w-3.5" />
+                                {eggToast.hint}
+                            </p>
+                        )}
+                    </div>
+                </div>
+            )}
+
+            {/* ---------------------------------------------------------- 跳跃按钮（手机） */}
+            {phase === "playing" && isTouch && (
+                <button
+                    type="button"
+                    data-testid="typing-3d-jump-button"
+                    aria-label="跳跃"
+                    onPointerDown={(event) => {
+                        event.preventDefault();
+                        engineRef.current?.requestJump();
+                    }}
+                    className="pointer-events-auto absolute bottom-6 right-6 z-20 flex h-16 w-16 touch-none items-center justify-center rounded-full border border-white/20 bg-white/10 text-white/90 backdrop-blur active:bg-white/25"
+                >
+                    <ChevronUp className="h-7 w-7" />
+                </button>
+            )}
 
             {/* ---------------------------------------------------------- 左侧设置 */}
             <div className="pointer-events-none absolute left-3 top-20 z-20 flex flex-col items-start gap-2 sm:left-4 sm:top-24">
@@ -720,11 +814,13 @@ export default function Typing3DGame() {
                     )}
                     {isTouch ? (
                         <div className="flex items-center gap-3 rounded-full border border-white/10 bg-[#0a0e27]/70 px-4 py-1.5 text-xs text-slate-300 backdrop-blur">
+                            <span>右下角按钮跳跃</span>
                             <span>左侧摇杆移动</span>
                             <span>拖动屏幕转视角</span>
                         </div>
                     ) : (
                         <div className="hidden items-center gap-4 rounded-full border border-white/10 bg-[#0a0e27]/70 px-4 py-1.5 text-xs text-slate-300 backdrop-blur sm:flex">
+                            <span>空格跳跃</span>
                             <span>WASD 移动</span>
                             <span>拖动鼠标转视角</span>
                             <span>E 答题</span>
@@ -800,6 +896,15 @@ export default function Typing3DGame() {
                         <p data-testid="typing-3d-question" className="mb-1 text-center text-2xl font-semibold tracking-wide text-white sm:text-3xl">
                             {currentQuestion.item.text}
                         </p>
+                        {hint && (
+                            <p
+                                data-testid="typing-3d-hint"
+                                className="mb-3 flex items-center gap-2 rounded-lg bg-amber-400/10 px-3 py-2 text-xs text-amber-100"
+                            >
+                                <Sparkles className="h-3.5 w-3.5 shrink-0" />
+                                {hint}
+                            </p>
+                        )}
                         {currentQuestion.item.kind === "zh" && currentQuestion.item.pinyin ? (
                             <p data-testid="typing-3d-pinyin" className="mb-4 text-center text-lg text-teal-200/90">
                                 {inputMode === "pinyin"
@@ -1101,6 +1206,10 @@ export default function Typing3DGame() {
                             <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-3">
                                 <p className="text-xs text-slate-400">最高连击</p>
                                 <p className="text-xl font-bold text-amber-200">x{stats.bestCombo}</p>
+                            </div>
+                            <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-3">
+                                <p className="text-xs text-slate-400">彩蛋</p>
+                                <p className="text-xl font-bold text-amber-200">{eggsFound}</p>
                             </div>
                         </div>
 

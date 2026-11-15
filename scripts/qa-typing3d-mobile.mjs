@@ -179,6 +179,19 @@ async function main() {
     check("触摸设备显示虚拟摇杆", hasJoystick);
     await page.screenshot({ path: path.join(OUT, "m03-joystick.png") });
 
+    // ---- 跳跃按钮：触摸设备才显示，点了要真的跳起来
+    const jumpButton = page.locator('[data-testid="typing-3d-jump-button"]');
+    const hasJump = (await jumpButton.count()) > 0;
+    check("触摸设备显示跳跃按钮", hasJump);
+    if (hasJump) {
+        const yBefore = await page.evaluate(() => window.__typing3d?.player?.()?.y ?? 0);
+        await tapElement(cdp, jumpButton);
+        await page.waitForTimeout(350);
+        const yAfter = await page.evaluate(() => window.__typing3d?.player?.()?.y ?? 0);
+        check("点跳跃按钮真的跳起来了", yAfter > yBefore + 0.2, `y ${yBefore.toFixed(2)} -> ${yAfter.toFixed(2)}`);
+        await page.waitForTimeout(1800);
+    }
+
     // ---- 摇杆真能走路
     let moved = null;
     if (hasJoystick) {

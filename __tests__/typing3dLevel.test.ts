@@ -89,4 +89,65 @@ describe("关卡生成", () => {
             });
         }
     });
+    it("每关都有一座跑酷塔、三个彩蛋和一块弹跳板", () => {
+        for (let index = 0; index < 24; index += 1) {
+            const layout = buildLevel(index, seed);
+            expect(layout.platforms.length).toBeGreaterThanOrEqual(5);
+            expect(layout.eggs.length).toBeGreaterThanOrEqual(3);
+            expect(layout.eggs.filter((egg) => egg.kind === "altar")).toHaveLength(1);
+            expect(layout.boxes.filter((box) => box.kind === "bounce")).toHaveLength(1);
+        }
+    });
+
+    it("跑酷塔是一级一级升上去的，每级都跳得上去", () => {
+        for (let index = 0; index < 24; index += 1) {
+            const layout = buildLevel(index, seed);
+            const heights = layout.platforms
+                .map((box) => box.baseY ?? 0)
+                .sort((left, right) => left - right);
+            for (let step = 1; step < heights.length; step += 1) {
+                // 一次跳跃最高 2.1 米，台阶之间不能差太多
+                expect(heights[step] - heights[step - 1]).toBeLessThanOrEqual(2);
+            }
+            expect(heights[heights.length - 1]).toBeGreaterThan(5);
+        }
+    });
+
+    it("跑酷塔不会压住出生点", () => {
+        for (let index = 0; index < 24; index += 1) {
+            const layout = buildLevel(index, seed);
+            layout.spawns.forEach((option) => {
+                for (const platform of layout.platforms) {
+                    expect(overlaps(option.x, option.z, platform, 1)).toBe(false);
+                }
+            });
+        }
+    });
+
+    it("彩蛋都在房间里，也不和墙柱子叠在一起", () => {
+        for (let index = 0; index < 24; index += 1) {
+            const layout = buildLevel(index, seed);
+            for (const egg of layout.eggs) {
+                expect(Math.abs(egg.x)).toBeLessThan(layout.width / 2);
+                expect(Math.abs(egg.z)).toBeLessThan(layout.depth / 2);
+                expect(egg.y).toBeGreaterThan(1);
+                for (const box of layout.boxes) {
+                    expect(overlaps(egg.x, egg.z, box, 0.4)).toBe(false);
+                }
+            }
+        }
+    });
+
+    it("祭坛彩蛋就在塔顶上", () => {
+        for (let index = 0; index < 24; index += 1) {
+            const layout = buildLevel(index, seed);
+            const altar = layout.eggs.find((egg) => egg.kind === "altar");
+            expect(altar).toBeTruthy();
+            const top = layout.platforms
+                .map((box) => (box.baseY ?? 0) + box.height)
+                .sort((left, right) => right - left)[0];
+            expect(altar?.y).toBeGreaterThan(top);
+            expect(altar?.y).toBeLessThan(top + 2);
+        }
+    });
 });

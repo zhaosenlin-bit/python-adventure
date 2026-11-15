@@ -6,7 +6,7 @@
  */
 
 import { mulberry32 } from "./bank";
-import type { BoxSpec, LevelLayout, PanelSpec, SpawnOption } from "./types";
+import type { BoxSpec, EasterEggSpec, LevelLayout, PanelSpec, SpawnOption } from "./types";
 
 /** 几套配色轮着来，24 关不会看着都一样。 */
 export const LEVEL_THEMES: LevelLayout["theme"][] = [
@@ -53,6 +53,13 @@ export function buildLevel(index: number, seed: number): LevelLayout {
     // 它们在放面板、摆柱子之前就算好，所以不会被挡住，也不会离面板太近。
     const spawns = buildSpawnPlans(halfWidth, halfDepth);
 
+    // 跑酷路线：贴着一面墙斜着往上搭，终点是彩蛋祭坛
+    const keepOut: KeepOut[] = [
+        ...spawns.map((option) => ({ x: option.x, z: option.z, radius: 3.2 })),
+        { x: door.x, z: door.z, radius: 5.5 },
+    ];
+    const parkour = buildParkourRoute(random, halfWidth, halfDepth, keepOut, door);
+
     // 外墙：北墙中间留一个门洞
     const addBox = (box: BoxSpec) => {
         boxes.push(box);
@@ -80,6 +87,7 @@ export function buildLevel(index: number, seed: number): LevelLayout {
         if (distance(x, z, spawn.x, spawn.z) < 9) continue;
         if (spawns.some((option) => distance(x, z, option.x, option.z) < 8)) continue;
         if (distance(x, z, door.x, door.z) < 7) continue;
+        if (parkour.platforms.some((item) => distance(x, z, item.x, item.z) < 4.2)) continue;
         panel = { x, z, rotation: Math.atan2(spawn.x - x, spawn.z - z) };
         break;
     }
@@ -108,6 +116,9 @@ export function buildLevel(index: number, seed: number): LevelLayout {
         ...spawns.map((option) => ({ x: option.x, z: option.z, radius: 3.2 })),
         { x: panel.x, z: panel.z, radius: 4.6 },
         { x: door.x, z: door.z - 1.5, radius: 5.4 },
+        // 跑酷塔和弹跳板：柱子别长在路线上
+        { x: parkour.center.x, z: parkour.center.z, radius: 4.4 },
+        { x: parkour.launchPad.x, z: parkour.launchPad.z, radius: 2.6 },
     ];
     let placedCount = 0;
     for (const candidate of candidates) {
@@ -128,6 +139,32 @@ export function buildLevel(index: number, seed: number): LevelLayout {
         placedCount += 1;
     }
 
+    // 弹跳板：路线起点前方的弹簧板，踩一下就能被弹上第一块平台
+    boxes.push({
+        x: parkour.launchPad.x,
+        z: parkour.launchPad.z,
+        width: 2.6,
+        depth: 2.6,
+        height: 0.35,
+        kind: "bounce",
+    });
+
+    // 第三个彩蛋：藏在房间角落，得自己找
+    const eggs: EasterEggSpec[] = [...parkour.eggs];
+    for (let attempt = 0; attempt < 60; attempt += 1) {
+        const x = (random() * 2 - 1) * Math.max(0, halfWidth - 3);
+        const z = (random() * 2 - 1) * Math.max(0, halfDepth - 3);
+        if (distance(x, z, spawn.x, spawn.z) < 8) continue;
+        if (spawns.some((option) => distance(x, z, option.x, option.z) < 6)) continue;
+        if (distance(x, z, panel.x, panel.z) < 7) continue;
+        if (distance(x, z, door.x, door.z) < 6) continue;
+        if (parkour.platforms.some((item) => distance(x, z, item.x, item.z) < 3.5)) continue;
+        if (boxes.some((box) => distance(x, z, box.x, box.z) < 3)) continue;
+        // 2.4 米高：站着够不到，得跳起来
+        eggs.push({ id: 2, x, y: 2.4, z, kind: "cube" });
+        break;
+    }
+
     return {
         index,
         width,
@@ -137,6 +174,8 @@ export function buildLevel(index: number, seed: number): LevelLayout {
         panels: [panel],
         door,
         boxes,
+        platforms: parkour.platforms,
+        eggs,
         theme: LEVEL_THEMES[index % LEVEL_THEMES.length],
     };
 }
@@ -163,3 +202,116 @@ function buildSpawnPlans(halfWidth: number, halfDepth: number): SpawnOption[] {
     ];
 }
 
+/** 跑酷路线 + 彩蛋位置。 */
+interface ParkourRoute {
+    /** 塔的中心（柱子要避开这里）。 */
+    center: { x: number; z: number };
+    /** 悬空平台（含顶端的祭坛）。 */
+    platforms: BoxSpec[];
+    /** 路线上的彩蛋：祭坛 + 半空中的问号方块。 */
+    eggs: EasterEggSpec[];
+    /** 路线旁边的弹跳板。 */
+    launchPad: { x: number; z: number };
+}
+
+/** 路线不能压到的地方（出生点、门口）。 */
+interface KeepOut {
+    x: number;
+    z: number;
+    radius: number;
+}
+
+/** 塔的半径：环形平台离中心的距离。 */
+const TOWER_RADIUS = 2.1;
+/** 每级平台高多少（一级跳能上 2.1 米，1.4 米很稳）。 */
+const TOWER_STEP = 1.4;
+/** 环形平台的数量。 */
+const TOWER_STEPS = 4;
+/** 塔顶祭坛的底面高度。 */
+const ALTAR_BASE = 0.9 + TOWER_STEPS * TOWER_STEP;
+/** 整个塔占地多大（用来避开出生点和门）。 */
+const TOWER_FOOTPRINT = TOWER_RADIUS + 1.6;
+
+/**
+ * 跑酷塔：一圈环形平台绕着中心螺旋往上，顶端是彩蛋祭坛。
+ *
+ * 做成塔而不是沿墙的楼梯，是因为出生点和门都在墙边，
+ * 塔身小、居中，才不会把出生点堵死，也不会挡住去门的路。
+ */
+function buildParkourRoute(
+    random: () => number,
+    halfWidth: number,
+    halfDepth: number,
+    keepOut: KeepOut[],
+    door: { x: number; z: number },
+): ParkourRoute {
+    // 先在房间里找一块空地：离出生点和门都够远
+    const candidates: Array<{ x: number; z: number }> = [];
+    for (let attempt = 0; attempt < 140; attempt += 1) {
+        const x = (random() * 2 - 1) * (halfWidth - TOWER_FOOTPRINT);
+        const z = (random() * 2 - 1) * (halfDepth - TOWER_FOOTPRINT);
+        if (Math.abs(x) > halfWidth - TOWER_FOOTPRINT) continue;
+        if (Math.abs(z) > halfDepth - TOWER_FOOTPRINT) continue;
+        if (keepOut.some((zone) => distance(x, z, zone.x, zone.z) < zone.radius + TOWER_FOOTPRINT)) {
+            continue;
+        }
+        candidates.push({ x, z });
+    }
+    const center =
+        candidates.length > 0
+            ? candidates[Math.floor(random() * candidates.length) % candidates.length]
+            : { x: 0, z: 0 };
+
+    // 环形平台：一圈四个，每级高 1.4 米
+    const offset = random() * Math.PI * 2;
+    const platforms: BoxSpec[] = [];
+    for (let index = 0; index < TOWER_STEPS; index += 1) {
+        const angle = offset + (index * Math.PI * 2) / TOWER_STEPS;
+        platforms.push({
+            x: center.x + Math.cos(angle) * TOWER_RADIUS,
+            z: center.z + Math.sin(angle) * TOWER_RADIUS,
+            width: 2.8,
+            depth: 2.8,
+            height: 0.45,
+            baseY: 0.9 + index * TOWER_STEP,
+            kind: "platform",
+        });
+    }
+
+    // 塔顶祭坛：彩蛋就摆在上面
+    platforms.push({
+        x: center.x,
+        z: center.z,
+        width: 4,
+        depth: 4,
+        height: 0.6,
+        baseY: ALTAR_BASE,
+        kind: "platform",
+    });
+
+    // 弹跳板：放在塔的背面（远离门那一侧），不会挡去门的路
+    const awayX = center.x - door.x;
+    const awayZ = center.z - door.z;
+    const awayLength = Math.hypot(awayX, awayZ) || 1;
+    const padX = center.x + (awayX / awayLength) * (TOWER_RADIUS + 2.3);
+    const padZ = center.z + (awayZ / awayLength) * (TOWER_RADIUS + 2.3);
+    const inside =
+        Math.abs(padX) <= halfWidth - 1.5 && Math.abs(padZ) <= halfDepth - 1.5;
+    const launchPad = inside
+        ? { x: padX, z: padZ }
+        : { x: center.x - (awayX / awayLength) * (TOWER_RADIUS + 2.3), z: center.z - (awayZ / awayLength) * (TOWER_RADIUS + 2.3) };
+
+    const middle = platforms[2];
+    const eggs: EasterEggSpec[] = [
+        { id: 0, x: center.x, y: ALTAR_BASE + 0.6 + 0.85, z: center.z, kind: "altar" },
+        {
+            id: 1,
+            x: middle.x,
+            y: (middle.baseY ?? 0) + middle.height + 1.4,
+            z: middle.z,
+            kind: "cube",
+        },
+    ];
+
+    return { center, platforms, eggs, launchPad };
+}

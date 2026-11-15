@@ -55,7 +55,9 @@ export interface BoxSpec {
     width: number;
     depth: number;
     height: number;
-    kind: "wall" | "pillar" | "step";
+    kind: BoxKind;
+    /** 底面离地高度：贴地的方块是 0，悬空平台就是 1.8 这种。 */
+    baseY?: number;
 }
 
 /** 发光的答题面板。 */
@@ -72,6 +74,21 @@ export interface DoorSpec {
     z: number;
     width: number;
     rotation: number;
+}
+
+/** 方块类型：墙 / 柱子 / 台阶 / 悬空平台 / 弹跳板。 */
+export type BoxKind = "wall" | "pillar" | "step" | "platform" | "bounce";
+
+/** 彩蛋：空中浮动的问号方块，或者跑酷路线顶端的隐藏祭坛。 */
+export interface EasterEggSpec {
+    /** 关卡内唯一的编号。 */
+    id: number;
+    x: number;
+    /** 离地高度。 */
+    y: number;
+    z: number;
+    /** cube = 空中问号方块；altar = 跑酷顶端的隐藏祭坛（大奖励）。 */
+    kind: "cube" | "altar";
 }
 
 /** A spawn point the player can pick before the run starts. */
@@ -97,6 +114,10 @@ export interface LevelLayout {
     panels: PanelSpec[];
     door: DoorSpec;
     boxes: BoxSpec[];
+    /** 跑酷用的悬空平台：底面 baseY 离地，玩家可以跳上去站着。 */
+    platforms: BoxSpec[];
+    /** 本关的彩蛋：空中问号方块 + 跑酷顶端的隐藏祭坛。 */
+    eggs: EasterEggSpec[];
     /** 每关换一点色调，避免 24 关长得一模一样。 */
     theme: {
         floor: number;
