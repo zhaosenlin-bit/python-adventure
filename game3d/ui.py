@@ -40,6 +40,7 @@ class UI:
 
         self.hud = self._build_hud()
         self.typing = self._build_typing_window()
+        self.toast = self._build_toast()
         self.menu = self._build_menu()
         self.spawn = self._build_spawn_panel()
         self.result = self._build_result()
@@ -67,7 +68,7 @@ class UI:
         return button
 
     def hide_all(self) -> None:
-        for group in (self.hud, self.typing, self.menu, self.spawn, self.result):
+        for group in (self.hud, self.typing, self.toast, self.menu, self.spawn, self.result):
             group.enabled = False
 
     # ------------------------------------------------------------------ HUD
@@ -84,6 +85,10 @@ class UI:
             "", origin=(0.5, 0), x=0.46, y=0.44, scale=1.0, color=_c(config.UI_DIM), parent=group
         )
         # 顶部左侧：当前关卡
+        # 彩蛋计数（挤在关卡下面）
+        self.hud_eggs = self._text(
+            "", origin=(0.5, 0), x=-0.46, y=0.375, scale=0.9, color=_c(config.UI_ACCENT), parent=group
+        )
         self.hud_level = self._text(
             "", origin=(0.5, 0), x=-0.46, y=0.44, scale=1.0, color=_c(config.UI_DIM), parent=group
         )
@@ -106,10 +111,13 @@ class UI:
         level: int,
         hint: str = "",
         prompt: str = "",
+        eggs_found: int = 0,
+        eggs_total: int = 0,
     ) -> None:
         self.hud_progress.text = T(f"第 {index} / {total} 题", f"Question {index} / {total}")
         self.hud_timer.text = T(f"用时 {elapsed:.1f}s", f"Time {elapsed:.1f}s")
         self.hud_level.text = T(f"第 {level} 关", f"Level {level}")
+        self.hud_eggs.text = T(f"彩蛋 {eggs_found} / {eggs_total}", f"Eggs {eggs_found} / {eggs_total}")
         self.hud_hint.text = hint
         self.hud_prompt.text = prompt
 
@@ -147,6 +155,10 @@ class UI:
             "", origin=(0, 0), y=-0.13, scale=1.2, color=_c(config.UI_ERROR), parent=group
         )
         # 操作说明
+        # 彩蛋换来的提示
+        self.typing_eggs = self._text(
+            "", origin=(0, 0), y=-0.175, scale=1.0, color=_c(config.UI_ACCENT), parent=group
+        )
         self.typing_hint = self._text(
             T("回车提交 · 退格删除 · Esc 关闭", "Enter to submit · Backspace to erase · Esc to close"),
             origin=(0, 0),
@@ -158,7 +170,14 @@ class UI:
 
         return group
 
-    def show_typing(self, question: str, buffer: str, wrong: bool = False) -> None:
+    def show_typing(
+        self,
+        question: str,
+        buffer: str,
+        wrong: bool = False,
+        egg_hint: str = "",
+    ) -> None:
+        self.typing_eggs.text = egg_hint
         self.typing_question.text = question
         self.typing_input.text = buffer + "|"  # 末尾竖线当光标
         self.typing_input.color = _c(config.UI_ERROR) if wrong else _c(config.UI_TEXT)
@@ -171,6 +190,37 @@ class UI:
 
     def hide_typing(self) -> None:
         self.typing.enabled = False
+
+    # ------------------------------------------------------------------ 提示浮层
+
+    def _build_toast(self) -> Entity:
+        """捡到彩蛋 / 踩到弹跳板时弹出来的一句话。"""
+        group = Entity(parent=self.root, y=0.33)
+
+        Entity(
+            model="quad",
+            parent=group,
+            scale=(0.7, 0.14),
+            color=_c(config.UI_BACKGROUND),
+            z=0.1,
+        )
+        self.toast_title = self._text(
+            "", origin=(0, 0), y=0.028, scale=1.25, color=_c(config.UI_ACCENT), parent=group
+        )
+        self.toast_body = self._text(
+            "", origin=(0, 0), y=-0.026, scale=0.9, color=_c(config.UI_TEXT), parent=group
+        )
+
+        group.enabled = False
+        return group
+
+    def show_toast(self, title: str, body: str = "") -> None:
+        self.toast_title.text = title
+        self.toast_body.text = body
+        self.toast.enabled = True
+
+    def hide_toast(self) -> None:
+        self.toast.enabled = False
 
     # ------------------------------------------------------------------ 主菜单
 

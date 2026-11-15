@@ -28,11 +28,12 @@ from ursina import (
 )
 
 from . import config
+from . import eggs
 from . import lighting
 from .fonts import T, current_font
 from .level import Level
 from .player import PlayerController
-from .questions import Question, daily_questions
+from .questions import Question, daily_questions, daily_seed
 from .ui import UI
 
 STATE_MENU = "menu"
@@ -95,6 +96,16 @@ class Game(Entity):
 
         self.state = STATE_MENU
         self.questions: list[Question] = daily_questions()
+        # 当天的随机种子（彩蛋文案按它选，当天固定）
+        self.seed = daily_seed()
+        # 捡到的彩蛋（跨关卡累计）
+        self.collected_eggs: set[str] = set()
+        # 彩蛋换来的题目提示（打字窗口里显示）
+        self.egg_hints: list[str] = []
+        # 提示浮层的剩余显示时间
+        self._toast_timer = 0.0
+        # 弹跳板：踩过一次要离开才会再弹
+        self._pad_armed = True
 
         # 进度
         self.level_index = 0
@@ -385,6 +396,9 @@ class Game(Entity):
         self.total_time = 0.0
         self.run_started_at = time_module.time()
         self.run_active = True
+        self.collected_eggs = set()
+        self.egg_hints = []
+        self._pad_armed = True
         self.selected_spawn = None
         self._goto_spawn()
 
@@ -466,7 +480,8 @@ class Game(Entity):
         if self.player is not None:
             self.player.freeze()
             self.player.set_mouse_locked(False)
-        self.ui.show_typing(question.text, "")
+        self.ui.show_typing(question.text, "", egg_hint=self._current_egg_hint())
+        self.ui.hide_toast()
         mouse.locked = False
 
     def _close_typing(self) -> None:
@@ -503,7 +518,40 @@ class Game(Entity):
         else:
             # 答错：输入框标红，提示「再试一次」
             self.wrong = True
-            self.ui.show_typing(question.text, self.buffer, wrong=True)
+            self.ui.show_typing(
+                question.text,
+                self.buffer,
+                wrong=True,
+                egg_hint=self._current_egg_hint(),
+            )
+
+    def _current_egg_hint(self) -> str:
+        """打字窗口里显示的彩蛋提示（最近捡到的那条）。"""
+        return self.egg_hints[-1] if self.egg_hints else ""
+
+    def _collect_egg(self, egg: dict) -> None:
+        """捡到彩蛋：记一笔、弹一句话、给当前题目一个提示。"""
+        key = eggs.egg_key(egg["kind"], egg["id"], self.level_index)
+        if key in self.collected_eggs:
+            return
+        self.collected_eggs.add(key)
+
+        # 关卡数和题目数一一对应；越界时兜底用最后一道题
+        question_index = min(self.level_index, len(self.questions) - 1)
+        question = self.questions[question_index]
+        text_zh, text_en = eggs.pick_egg_text(
+            self.seed, self.level_index, egg["id"], egg["kind"]
+        )
+        hint_zh, hint_en = eggs.egg_hint(question.text, egg["kind"])
+        if hint_zh:
+            self.egg_hints.append(T(hint_zh, hint_en))
+
+        if egg["kind"] == eggs.EGG_KIND_ALTAR:
+            title = T("找到隐藏祭坛", "Hidden altar found")
+        else:
+            title = T("找到彩蛋", "Easter egg found")
+        self.ui.show_toast(title, T(text_zh, text_en))
+        self._toast_timer = 4.0
 
     def _next_level(self) -> None:
         self.level_index += 1
@@ -586,6 +634,12 @@ class Game(Entity):
         self._time += time.dt
         self._update_camera()
 
+        # 提示浮层：几秒后自动消失
+        if self._toast_timer > 0:
+            self._toast_timer -= time.dt
+            if self._toast_timer <= 0:
+                self.ui.hide_toast()
+
         # 关卡动画一直跑（面板浮动 / 开门），结算页背后门也会继续打开
         if self.level is not None:
             self.level.update(time.dt)
@@ -643,6 +697,24 @@ class Game(Entity):
 
         distance = level.distance_to_panel(player.world_position)
 
+        # 彩蛋：走近就捡
+        egg = level.collect_egg_near(player.world_position)
+        if egg is not None:
+            self._collect_egg(egg)
+
+        # 弹跳板：踩上去被弹起来（离开之后才会再弹）
+        on_pad = level.on_bounce_pad(player.world_position)
+        if on_pad and player.grounded and self._pad_armed:
+            self._pad_armed = False
+            player.bounce(config.BOUNCE_PAD_FORCE)
+            self.ui.show_toast(
+                T("弹跳板！", "Bounce pad!"),
+                T("这一下能直接窜上第四层", "Straight to the fourth platform"),
+            )
+            self._toast_timer = 2.5
+        elif not on_pad:
+            self._pad_armed = True
+
         # 走远了就重新「上膛」，回到面板前才会再次自动弹窗
         if distance > config.PANEL_TRIGGER_DISTANCE + 1.5:
             self.auto_open_armed = True
@@ -676,6 +748,8 @@ class Game(Entity):
             level=self.level_index + 1,
             hint=hint,
             prompt=prompt,
+            eggs_found=len(self.collected_eggs),
+            eggs_total=len(self.questions) * max(len(level.eggs), 1),
         )
 
         # 走进门里 -> 下一关

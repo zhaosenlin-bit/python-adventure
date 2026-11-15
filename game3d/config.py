@@ -34,8 +34,12 @@ THIRD_PERSON_BASE_PITCH = 8.0
 PLAYER_SPEED = 5.5
 PLAYER_HEIGHT = 2.0
 PLAYER_EYE = 1.7
-PLAYER_GRAVITY = 1.0
-PLAYER_JUMP_HEIGHT = 2.0
+# 重力加速度（单位 / 秒²）
+PLAYER_GRAVITY_ACCEL = 24.0
+# 起跳初速度（单位 / 秒）：最高点 = v² / 2g ≈ 1.76 米，刚好够上跑酷塔
+PLAYER_JUMP_VELOCITY = 9.2
+# 能直接走上去的高度（矮台阶）
+PLAYER_STEP_UP = 0.55
 # 面板触发距离：走到这么近就自动弹出打字窗口
 PANEL_TRIGGER_DISTANCE = 3.4
 # 门口触发区：走进去就进入下一关
@@ -54,6 +58,28 @@ PANEL_FLOAT_AMPLITUDE = 0.22
 PANEL_FLOAT_SPEED = 1.6
 
 # ---------------------------------------------------------------- 场景氛围
+
+# ---------------------------------------------------------------- 跑酷塔 / 彩蛋
+
+# 平台尺寸（宽 / 深）
+PARKOUR_PLATFORM_SIZE = 2.8
+PARKOUR_PLATFORM_THICKNESS = 0.45
+# 层与层之间的高度差（要小于跳跃最高点 1.76）
+PARKOUR_SPACING = 1.25
+# 弹跳板：踩上去的起跳速度（最高点 ≈ 5 米，可以直接窜到第四层）
+BOUNCE_PAD_FORCE = 15.5
+BOUNCE_PAD_RADIUS = 1.15
+# 跑酷塔配色
+PARKOUR_PLATFORM_COLOR = (0.22, 0.24, 0.31)
+PARKOUR_EDGE_COLOR = (0.36, 0.86, 0.92)
+BOUNCE_PAD_COLOR = (0.42, 1.0, 0.62)
+# 彩蛋拾取半径（球形）
+EGG_PICKUP_RADIUS = 2.0
+EGG_COLOR = (0.98, 0.84, 0.30)
+EGG_ALTAR_COLOR = (0.66, 0.48, 1.0)
+# 彩蛋上下浮动 / 自转的速度
+EGG_FLOAT_SPEED = 1.8
+EGG_SPIN_SPEED = 42.0
 
 FOG_COLOR = (0.08, 0.07, 0.10)
 FOG_DENSITY = 0.022

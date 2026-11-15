@@ -11,6 +11,7 @@
 from __future__ import annotations
 
 import random
+import sys
 from dataclasses import dataclass
 from datetime import date as date_cls
 from datetime import datetime
@@ -207,6 +208,12 @@ def bank_size() -> int:
 
 if __name__ == "__main__":  # 手动自检：python -m game3d.questions
     import collections
+
+    # Windows 控制台默认 GBK，中文会变乱码 —— 强制切 UTF-8
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:  # pragma: no cover - 老 Python 没有 reconfigure
+        pass
 
     questions = daily_questions()
     print(f"题库总量: {bank_size()}")

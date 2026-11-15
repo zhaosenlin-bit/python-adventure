@@ -15,6 +15,8 @@
 
 * 引擎：Python + [Ursina](https://www.ursinaengine.org/)（底层是 Panda3D / OpenGL）
 * 完全离线运行，**不联网、不依赖后端、不依赖外部模型或贴图**（所有场景都用 Cube / Plane 拼）
+* 每关角落都有一座 **5 层跑酷塔**：`空格` 跳上去，踩绿色弹跳板能一次窜到第四层
+* 藏着 **3 个彩蛋**：金色问号方块 / 塔顶紫色祭坛，捡到送一句当天的文案 + 一个题目提示
 * 与原有 Next.js + FastAPI 主工程**完全解耦**：本目录是纯追加的新包，原有代码一行未改
 
 ---
@@ -89,6 +91,8 @@ python -m game3d.questions     # 打印当天的题量、难度分布、题目�
 | 大厅 | 点击「3D 打字闯关」按钮 |
 | 选择出生点 | 点击地面上的发光光环，或按 `1` ~ `4`，再点「确认出发」 |
 | 探索 | `W` / `A` / `S` / `D` 移动，鼠标转视角，`V` 切换第一 / 第三人称，`Esc` 回大厅 |
+| 跑酷 | `空格` 跳跃（可以跳上跑酷塔），踩绿色弹跳板会被弹得更高 |
+| 彩蛋 | 空中的金色问号方块 / 塔顶紫色祭坛，走近自动捡；送一句话 + 一个题目提示（问号给首字母，祭坛给前半句） |
 | 答题 | 走到发光的「打字」面板前会自动弹出打字窗口（也可以按 `E` 或直接点击面板） |
 | 打字 | 直接敲键盘输入，**回车提交**，`退格` 删除，`Esc` 关闭窗口 |
 | 判定 | 答对 → 面板变绿 + 门缓缓打开；答错 → 输入框标红并提示「再试一次」 |
@@ -115,12 +119,14 @@ game3d/
 ├── lighting.py            # 点光源 / 环境光封装（Ursina 的 Light 没有 brightness，必须自己乘进颜色）
 ├── player.py              # 第一/第三人称控制器：WASD + 鼠标视角 + 重力 + 射线碰撞
 ├── level.py               # 关卡生成：房间 / 柱子 / 面板 / 门 / 走廊，随关卡数变复杂
+├── eggs.py                # 彩蛋文案 + 跑酷塔布局（纯逻辑，不依赖 Ursina，可直接单测）
 ├── game.py                # 主状态机：大厅 → 出生点 → 关卡 → 打字 → 结算
 ├── ui.py                  # 全部 2D 界面：大厅、HUD、打字窗口、出生点、结算页
 ├── questions.py           # 每日题库（纯 Python，不依赖 Ursina）
 ├── requirements.txt       # ursina==7.0.0
 ├── tests/
-│   └── test_questions.py  # 题库单元测试（纯逻辑，不需要显卡）
+│   ├── test_questions.py  # 题库单元测试（纯逻辑，不需要显卡）
+│   └── test_eggs.py       # 彩蛋文案 / 跑酷塔布局单元测试（纯逻辑，不需要显卡）
 └── README.md              # 本文件
 ```
 
@@ -153,6 +159,12 @@ game3d/
 | 内置 ≥200 个词、三档难度 | `questions.py::EASY_WORDS / MEDIUM_WORDS / MEDIUM_PHRASES / HARD_WORDS / HARD_PHRASES`（共 210 条），分档在 `TIER_POOLS` |
 | 当天不重复 | `questions.py::daily_questions()` 里的 `used: set` 去重 |
 | 顶部「第 N / M 题」 | `ui.py::update_hud()` → `ui.hud_progress` |
+| 每关都有跑酷塔 | `level.py::Level._build_parkour()`；布局算法在 `eggs.py::parkour_layout()`；尺寸 / 层高参数在 `config.py`（`PARKOUR_*`） |
+| 跳跃物理 | `player.py::PlayerController.jump()` / `bounce()`；参数 `config.py::PLAYER_JUMP_VELOCITY` / `PLAYER_GRAVITY_ACCEL` / `PLAYER_STEP_UP` |
+| 弹跳板 | `level.py::Level.on_bounce_pad()` 判定踩到 → `game.py::_update_playing()` 调 `player.bounce(config.BOUNCE_PAD_FORCE)` |
+| 彩蛋实体（问号方块 / 隐藏祭坛） | `level.py::Level._build_egg()`；文案在 `eggs.py::EGG_TEXTS` / `ALTAR_TEXTS`；拾取在 `level.py::collect_egg_near()` |
+| 彩蛋提示进入打字窗口 | `game.py::_collect_egg()` → `ui.py::show_typing(..., egg_hint=...)` → `ui.typing_eggs` |
+| 彩蛋计数 HUD | `ui.py::update_hud()` → `ui.hud_eggs`（本局总数 / 全关卡总数） |
 | 网站主界面的「3D 打字闯关」按钮 | `app/page.tsx::handleOpen3DTyping()` → `backend/app/api/v1/launcher.py` 的 `POST /api/v1/launcher/3d-typing`（用 `subprocess.Popen` 拉起 `python -m game3d.main`） |
 | 中文能正常显示 | `fonts.py::setup_fonts()` 找系统中文字体并注册进 Panda3D `model-path`，找不到就自动切英文文案（`fonts.py::T()`） |
 
@@ -185,7 +197,21 @@ A：题目由日期种子决定，当天固定是设计如此（可重复练习�
 python -m pytest game3d/tests -q
 ```
 
-（需要 `pip install pytest`；没有 pytest 时也可以直接 `python game3d/tests/test_questions.py` 运行。）
+（需要 `pip install pytest`；没有 pytest 时也可以直接运行：）
+
+```powershell
+python game3d/tests/test_questions.py   # 题库（9 项）
+python game3d/tests/test_eggs.py        # 彩蛋文案 / 跑酷塔布局（15 项）
+```
+
+### 跑酷 / 彩蛋的实战验收（需要 ursina + 显示器）
+
+这条脚本会开一个真实窗口，用真实按键（`空格` + `W`）跑一遍：跳上第一层 → 一路跳到塔顶 →
+踩弹跳板 → 捡彩蛋 → 打字窗口拿到提示。
+
+```powershell
+python scripts/qa_game3d_parkour.py
+```
 
 ---
 

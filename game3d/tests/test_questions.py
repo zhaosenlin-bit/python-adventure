@@ -105,6 +105,11 @@ def test_answers_are_not_empty() -> None:
 
 if __name__ == "__main__":  # 手动运行
     tests = [value for name, value in sorted(globals().items()) if name.startswith("test_")]
+    # Windows 控制台默认 GBK，中文会变乱码 —— 强制切 UTF-8
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:  # pragma: no cover - 老 Python 没有 reconfigure
+        pass
     failed = 0
     for test in tests:
         try:

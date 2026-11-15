@@ -36,13 +36,15 @@ class PlayerController(Entity):
 
         self.speed = config.PLAYER_SPEED
         self.height = config.PLAYER_HEIGHT
-        self.gravity = config.PLAYER_GRAVITY
-        self.jump_height = config.PLAYER_JUMP_HEIGHT
+        self.gravity = config.PLAYER_GRAVITY_ACCEL
+        self.jump_velocity = config.PLAYER_JUMP_VELOCITY
         self.mouse_sensitivity = Vec2(config.MOUSE_SENSITIVITY, config.MOUSE_SENSITIVITY)
 
         self.can_move = True
         self.grounded = False
         self.air_time = 0.0
+        # 竖直速度（单位 / 秒）：跳跃、下落、弹跳板共用这一条通道
+        self.vertical_velocity = 0.0
         self.direction = Vec3(0, 0, 0)
         self.ignore_list = [self]
         self.traverse_target = scene
@@ -106,13 +108,20 @@ class PlayerController(Entity):
 
     def input(self, key: str) -> None:
         if key == "space" and self.can_move and self.grounded:
-            self._jump()
+            self.jump()
 
     # ------------------------------------------------------------------ 物理
 
-    def _jump(self) -> None:
+    def jump(self) -> None:
+        """起跳：给一个向上的初速度（最高点 = v² / 2g）。"""
         self.grounded = False
-        self.y += self.jump_height * 0.5
+        self.vertical_velocity = self.jump_velocity
+        self.air_time = 0.0
+
+    def bounce(self, force: float) -> None:
+        """被弹跳板弹起（比普通跳跃更高）。"""
+        self.grounded = False
+        self.vertical_velocity = max(self.vertical_velocity, force)
         self.air_time = 0.0
 
     def update(self) -> None:
@@ -167,25 +176,58 @@ class PlayerController(Entity):
         self._apply_gravity()
 
     def _apply_gravity(self) -> None:
+        """竖直运动：重力积分 + 落地判定。
+
+        脚下单独打一条向下的射线来找支撑面 —— 从头顶打会被上方的平台挡住，
+        站在跑酷塔底下就会被误判成悬空。
+        """
         if not self.gravity:
             return
-        ray = raycast(
-            self.world_position + (0, self.height, 0),
+
+        foot_ray = raycast(
+            self.world_position + (0, 0.12, 0),
             self.down,
             traverse_target=self.traverse_target,
             ignore=self.ignore_list,
+            distance=self.height + 0.6,
         )
-        if ray.hit and ray.distance <= self.height + 0.1:
-            if not self.grounded:
-                self.air_time = 0.0
-            self.grounded = True
-            if ray.world_normal.y > 0.7 and ray.world_point.y - self.world_y < 0.5:
-                self.y = ray.world_point[1]
+        support_y = None
+        if foot_ray.hit and foot_ray.world_normal.y > 0.7:
+            support_y = foot_ray.world_point[1]
+
+        # 站在平地上：保持不动
+        if self.grounded and support_y is not None and abs(support_y - self.y) <= 0.06:
+            self.vertical_velocity = 0.0
             return
 
+        # 矮台阶：直接踩上去
+        if (
+            self.grounded
+            and support_y is not None
+            and 0 < support_y - self.y <= config.PLAYER_STEP_UP
+        ):
+            self.y = support_y
+            self.vertical_velocity = 0.0
+            return
+
+        # 空中：重力积分
         self.grounded = False
-        self.y -= min(self.air_time, max(ray.distance - 0.05, 0.05)) * time.dt * 100
-        self.air_time += time.dt * 0.25 * self.gravity
+        self.air_time += time.dt
+        self.vertical_velocity = max(-30.0, self.vertical_velocity - self.gravity * time.dt)
+        previous_y = self.y
+        self.y += self.vertical_velocity * time.dt
+
+        # 落到支撑面上：只有「本来就在它上面」才吸附，避免穿模后被吸上去
+        if (
+            self.vertical_velocity <= 0
+            and support_y is not None
+            and previous_y >= support_y - 0.02
+            and self.y <= support_y
+        ):
+            self.y = support_y
+            self.vertical_velocity = 0.0
+            self.grounded = True
+            self.air_time = 0.0
 
     # ------------------------------------------------------------------ 工具
 

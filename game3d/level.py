@@ -21,7 +21,7 @@ from ursina import (
     scene,
 )
 
-from . import config, lighting
+from . import config, eggs, lighting
 from .fonts import T, current_font
 
 
@@ -64,6 +64,10 @@ class Level:
         self.exit_position = Vec3(0, 0, self.room_depth / 2 + 7.5)
 
         self.panel: Optional[Entity] = None
+        # 跑酷塔 + 彩蛋（和网页版同一套玩法）
+        self.platforms: list[dict] = []
+        self.eggs: list[dict] = []
+        self.bounce_pad: Optional[dict] = None
         self.panel_root: Optional[Entity] = None
         self.door_hinge: Optional[Entity] = None
         self.door_light: Optional[Entity] = None
@@ -82,6 +86,7 @@ class Level:
         self._build_obstacles()
         self._build_panel()
         self._build_door()
+        self._build_parkour()
         self._build_corridor()
         return self
 
@@ -446,6 +451,152 @@ class Level:
         # 传送点就在门洞正后方：玩家走进打开的门即进入下一关
         self.exit_position = Vec3(0, 0, z0 + 1.4)
 
+    def _build_parkour(self) -> None:
+        """跑酷塔 + 弹跳板 + 彩蛋。
+
+        塔在房间左后方，离出生点不远但不挡去面板的路；每层左右交错，
+        只能靠跳上去 —— 顶端是祭坛平台。
+        """
+        layout = eggs.parkour_layout(
+            self.index,
+            self.room_width,
+            self.room_depth,
+            platform_size=config.PARKOUR_PLATFORM_SIZE,
+            platform_thickness=config.PARKOUR_PLATFORM_THICKNESS,
+            spacing=config.PARKOUR_SPACING,
+        )
+
+        for spec in layout["platforms"]:
+            top = spec["y"]
+            thickness = spec["height"]
+            platform = self._keep(
+                Entity(
+                    model="cube",
+                    scale=(spec["width"], thickness, spec["depth"]),
+                    position=(spec["x"], top - thickness / 2, spec["z"]),
+                    color=_c(config.PARKOUR_PLATFORM_COLOR),
+                    collider="box",
+                )
+            )
+            self.platforms.append({**spec, "entity": platform})
+            # 顶面的发光条，雾里也能看清这一层
+            self._keep(
+                Entity(
+                    model="cube",
+                    scale=(spec["width"] * 0.82, 0.06, spec["depth"] * 0.82),
+                    position=(spec["x"], top + 0.04, spec["z"]),
+                    color=_c(config.PARKOUR_EDGE_COLOR, 0.55),
+                    unlit=True,
+                )
+            )
+
+        # 弹跳板：踩上去会被弹起来，可以直接窜到第四层
+        pad = layout["pad"]
+        pad_entity = self._keep(
+            Entity(
+                model="cube",
+                scale=(pad["radius"] * 1.9, 0.18, pad["radius"] * 1.9),
+                position=(pad["x"], 0.09, pad["z"]),
+                color=_c(config.BOUNCE_PAD_COLOR),
+                unlit=True,
+            )
+        )
+        self._keep(
+            lighting.point_light(
+                config.BOUNCE_PAD_COLOR,
+                brightness=0.45,
+                radius=12.0,
+                position=(pad["x"], 1.2, pad["z"]),
+            )
+        )
+        self.bounce_pad = {**pad, "entity": pad_entity, "y": 0.18}
+
+        # 彩蛋
+        for spec in layout["eggs"]:
+            entity = self._build_egg(spec)
+            self.eggs.append(
+                {**spec, "entity": entity, "collected": False, "base_y": spec["y"], "level": self.index}
+            )
+
+    def _build_egg(self, spec) -> Entity:
+        """做一个彩蛋实体：普通问号方块 / 祭坛。返回会动的根节点。"""
+        root = Entity(position=(spec["x"], spec["y"], spec["z"]))
+        self._keep(root)
+
+        if spec["kind"] == eggs.EGG_KIND_ALTAR:
+            # 祭坛：紫色核心 + 四颗环绕的小方块
+            core = Entity(
+                model="cube",
+                scale=(1.15, 1.15, 1.15),
+                parent=root,
+                color=_c(config.EGG_ALTAR_COLOR),
+                unlit=True,
+            )
+            self._keep(core)
+            root.egg_spinner = core
+            chips = []
+            for _ in range(4):
+                chip = Entity(
+                    model="cube",
+                    scale=(0.32, 0.32, 0.32),
+                    parent=root,
+                    color=_c(config.EGG_ALTAR_COLOR, 0.85),
+                    unlit=True,
+                )
+                self._keep(chip)
+                chips.append(chip)
+            root.egg_orbit = chips
+            self._keep(
+                lighting.point_light(
+                    config.EGG_ALTAR_COLOR,
+                    brightness=0.55,
+                    radius=14.0,
+                    position=(spec["x"], spec["y"], spec["z"]),
+                )
+            )
+            return root
+
+        # 普通问号方块：金色方块自转，四面各挂一个问号
+        cube = Entity(
+            model="cube",
+            scale=(0.92, 0.92, 0.92),
+            parent=root,
+            color=_c(config.EGG_COLOR),
+            unlit=True,
+        )
+        self._keep(cube)
+        root.egg_spinner = cube
+        font = current_font()
+        for index in range(4):
+            angle = index * math.pi / 2
+            label = Text(
+                text="?",
+                parent=root,
+                origin=(0, 0),
+                position=(math.sin(angle) * 0.48, 0, -math.cos(angle) * 0.48),
+                # 文字正面朝 -Z，绕 Y 转 -angle 之后正好朝外
+                rotation=(0, -math.degrees(angle), 0),
+                scale=22.0,
+                color=color.rgba(0.16, 0.12, 0.03, 1.0),
+                unlit=True,
+            )
+            if font:
+                label.font = font
+            try:
+                label.setTwoSided(True)
+            except Exception:  # pragma: no cover
+                pass
+            self._keep(label)
+        self._keep(
+            lighting.point_light(
+                config.EGG_COLOR,
+                brightness=0.4,
+                radius=10.0,
+                position=(spec["x"], spec["y"], spec["z"]),
+            )
+        )
+        return root
+
     # ------------------------------------------------------------------ 逻辑
 
     def open_door(self) -> None:
@@ -471,6 +622,25 @@ class Level:
             offset = math.sin(self._time * config.PANEL_FLOAT_SPEED) * config.PANEL_FLOAT_AMPLITUDE
             self.panel_root.y = self._panel_base_y + offset
 
+        # 彩蛋：上下浮动 + 自转（祭坛的小方块会绕着核心转）
+        for egg in self.eggs:
+            if egg.get("collected"):
+                continue
+            entity = egg.get("entity")
+            if entity is None:
+                continue
+            bob = math.sin(self._time * config.EGG_FLOAT_SPEED + egg["id"]) * 0.22
+            entity.y = egg["base_y"] + bob
+            spinner = getattr(entity, "egg_spinner", None)
+            if spinner is not None:
+                spinner.rotation_y += dt * config.EGG_SPIN_SPEED
+            chips = getattr(entity, "egg_orbit", None)
+            if chips:
+                for index, chip in enumerate(chips):
+                    angle = self._time * config.EGG_FLOAT_SPEED + index / len(chips) * math.tau
+                    chip.x = math.sin(angle) * 1.15
+                    chip.z = -math.cos(angle) * 1.15
+
         # 门缓缓打开
         if self.door_opened and self.door_hinge is not None:
             self.door_progress = min(1.0, self.door_progress + dt / config.DOOR_OPEN_DURATION)
@@ -492,6 +662,37 @@ class Level:
     def distance_to_exit(self, position) -> float:
         return (self.exit_position - position).length()
 
+    def collect_egg_near(self, position) -> Optional[dict]:
+        """捡起离玩家最近、且还没被捡走的彩蛋。捡到就返回它。"""
+        for egg in self.eggs:
+            if egg.get("collected"):
+                continue
+            dx = egg["x"] - position[0]
+            dy = egg["y"] - position[1]
+            dz = egg["z"] - position[2]
+            if math.sqrt(dx * dx + dy * dy + dz * dz) > config.EGG_PICKUP_RADIUS:
+                continue
+            egg["collected"] = True
+            entity = egg.get("entity")
+            if entity is not None:
+                try:
+                    destroy(entity)
+                except Exception:  # pragma: no cover - 销毁顺序异常时忽略
+                    pass
+            return egg
+        return None
+
+    def on_bounce_pad(self, position) -> bool:
+        """玩家是不是正踩在弹跳板上。"""
+        pad = self.bounce_pad
+        if pad is None:
+            return False
+        dx = position[0] - pad["x"]
+        dz = position[2] - pad["z"]
+        if dx * dx + dz * dz > pad["radius"] ** 2:
+            return False
+        return abs(position[1] - pad["y"]) < 0.6
+
     def destroy(self) -> None:
         """销毁这一关的所有实体。"""
         for entity in list(self.entities):
@@ -502,5 +703,8 @@ class Level:
         self.entities.clear()
         self.panel = None
         self.panel_root = None
+        self.eggs = []
+        self.platforms = []
+        self.bounce_pad = None
         self.door_hinge = None
         self.door_light = None
