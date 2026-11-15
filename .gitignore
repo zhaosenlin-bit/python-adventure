@@ -148,6 +148,7 @@ tmp-br-host-before-fill.png
 
 # 3D 打字闯关（网页版）QA 截图输出
 .qa-typing3d/
+.qa-home/
 game3d/.fontcache/
 game3d/**/__pycache__/
 game3d/.game3d.pid
