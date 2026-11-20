@@ -113,6 +113,14 @@ python scripts\build_exe.py
 - `dist\PythonAdventureIsland\PythonAdventureIsland.exe`（约 258 MB）
 - `dist\PythonAdventureIsland-win-x64.zip`（分发用）
 
+两个 Ursina 桌面游戏（3D 打字闯关 / 水乐园大乱斗）要**单独**打包 —— 主程序里没有
+ursina / panda3d，各自打一份后才会自动拷进主程序目录：
+
+```powershell
+python scripts\build_game3d_exe.py    # dist\Game3DTyping\Game3DTyping.exe
+python scripts\build_aquapark_exe.py   # dist\AquaparkIO\AquaparkIO.exe
+```
+
 技术路线：Next.js 静态导出（`output: export`）+ FastAPI 直接托管前端，
 再用 PyInstaller 打成一个目录版 exe（onedir，秒级启动；onefile 要解压
 8000 多个资源文件，太慢）。

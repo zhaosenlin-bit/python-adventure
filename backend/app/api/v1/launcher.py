@@ -58,6 +58,8 @@ GAMES: dict[str, dict] = {
         # 单独打包好的桌面版 exe（找不到就回退到用 Python 直接跑源码）
         "exe_dir": "Game3DTyping",
         "exe_name": "Game3DTyping.exe",
+        # 指定 exe 路径的环境变量（部署到别的机器时用得上）
+        "exe_env": "GAME3D_EXE",
     },
     "aquapark": {
         "label": "水乐园大乱斗",
@@ -66,6 +68,10 @@ GAMES: dict[str, dict] = {
         # 水乐园还要 numpy + pillow 画程序化贴图
         "requires": ("ursina", "numpy", "PIL"),
         "requirements_file": "aquapark/requirements.txt",
+        # 单独打包好的桌面版 exe（找不到就回退到用 Python 直接跑源码）
+        "exe_dir": "AquaparkIO",
+        "exe_name": "AquaparkIO.exe",
+        "exe_env": "AQUAPARK_EXE",
     },
 }
 
@@ -117,7 +123,7 @@ def _find_exe(spec: dict) -> Path | None:
         return None
 
     candidates: list[Path] = []
-    configured = os.environ.get("GAME3D_EXE", "").strip()
+    configured = os.environ.get(spec.get("exe_env", "GAME3D_EXE"), "").strip()
     if configured:
         candidates.append(Path(configured))
     for root in _exe_roots():

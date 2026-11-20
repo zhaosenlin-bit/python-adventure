@@ -33,6 +33,7 @@ DATAS = collect_data_files("panda3d") + collect_data_files("ursina")
 HIDDEN_IMPORTS = collect_submodules("panda3d") + collect_submodules("ursina") + [
     "game3d",
     "game3d.config",
+    "game3d.eggs",
     "game3d.fonts",
     "game3d.game",
     "game3d.level",

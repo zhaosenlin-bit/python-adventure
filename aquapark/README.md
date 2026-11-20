@@ -198,3 +198,30 @@ A：Ursina 需要 OpenGL 3.3+。可以先跑 `python -m unittest discover -s aqu
 A：`fonts.py` 会自动在 `C:\Windows\Fonts`（macOS / Linux 对应目录）里找微软雅黑、
 黑体、苹方、Noto CJK 等字体。装好任一中文字体就能正常显示；找不到时游戏会自动
 切成英文文案，不会崩。
+
+---
+
+## 8. 打包成独立 exe
+
+主程序 `PythonAdventureIsland.exe` 里**没有** ursina / panda3d，所以桌面版要单独打一个 exe。
+打完之后两个程序互不依赖：谁都不用装 Python。
+
+```powershell
+cd python-adventure
+
+pip install -r aquapark/requirements.txt   # ursina + numpy + pillow
+pip install pyinstaller
+
+python scripts/build_aquapark_exe.py
+```
+
+产物：
+
+| 路径 | 说明 |
+| --- | --- |
+| `dist/AquaparkIO/AquaparkIO.exe` | 桌面版主程序（onedir，旁边是 `_internal/`） |
+| `dist/AquaparkIO-win-x64.zip` | 整包压缩，给别人直接解压就能玩 |
+| `dist/PythonAdventureIsland/AquaparkIO/` | 如果主程序已经打过，会自动拷进去一起发 |
+
+启动器（`backend/app/api/v1/launcher.py`）会**优先直接跑那个 exe** —— 别人拿到就能玩，
+不用装 Python、更不用装 ursina。找不到 exe 时才回退到 `python -m aquapark.main`。
