@@ -63,19 +63,27 @@ def run(cmd: list[str], cwd: Path, env: dict | None = None) -> int:
 def build_frontend() -> None:
     banner("1/4  构建前端静态站点")
 
-    route = BACKEND.parent / "app" / "api" / "typing" / "[...path]" / "route.ts"
-    backup = route.with_suffix(".ts.bak")
+    # 静态导出不支持 API 路由，这些要先移开（导出后由 FastAPI 直接提供）
+    routes = [
+        BACKEND.parent / "app" / "api" / "typing" / "[...path]" / "route.ts",
+        BACKEND.parent / "app" / "api" / "v1" / "launcher" / "[game]" / "route.ts",
+    ]
     next_dir = REPO / ".next"
 
     if next_dir.exists():
         shutil.rmtree(next_dir, ignore_errors=True)
         print("  已清空 .next")
 
-    moved = False
-    if route.exists():
-        route.rename(backup)
-        moved = True
-        print("  已临时移开 app/api/typing 路由（静态导出不支持 API 路由）")
+    moved: list[tuple[Path, Path]] = []
+    for route in routes:
+        backup = route.with_suffix(".ts.bak")
+        if route.exists():
+            route.rename(backup)
+            moved.append((route, backup))
+            print(
+                f"  已临时移开 {route.relative_to(BACKEND.parent).as_posix()} 路由"
+                "（静态导出不支持 API 路由）"
+            )
 
     try:
         code = run(
@@ -88,9 +96,10 @@ def build_frontend() -> None:
             },
         )
     finally:
-        if moved and backup.exists():
-            backup.rename(route)
-            print("  已还原 app/api/typing 路由")
+        for route, backup in moved:
+            if backup.exists():
+                backup.rename(route)
+                print(f"  已还原 {route.relative_to(BACKEND.parent).as_posix()} 路由")
 
     if code != 0:
         raise SystemExit("前端构建失败")

@@ -15,7 +15,7 @@
 
 ## ✨ 项目特色
 
-### 🎯 8 大可玩模式
+### 🎯 9 大可玩模式
 
 | 模式 | 说明 |
 | --- | --- |
@@ -28,6 +28,7 @@
 | ⌨️ **打字训练** | 9 款独立打字游戏，课程进度落库，支持语音 TTS / 速度排行 |
 | 🏔️ **3D 打字闯关** | 网页版（three.js，浏览器直接玩）：探索 → 答题 → 开门 → 下一关，每天 24 关，中文可按拼音打；另附 Ursina 桌面版 |
 | 🧠 **代码研究** | AI 驱动的代码研究入口，配套战役化引导 |
+| 🌊 **水乐园大乱斗** | 复刻 Poki 的《Aquapark.io》：巨型水滑梯竞速、踩水柱腾空、空中俯冲撞飞对手，外加收集 / 抽卡环节；Ursina 桌面版，从站内一键拉起 |
 
 ### 🛠️ 创意工坊
 
@@ -200,6 +201,8 @@ http://localhost:3000/typing-3d
   电脑没装中文输入法也能按拼音打；左上角可随时切换「打拼音 / 打汉字」
 * **拼音怎么打都行**：带声调的 `wèi nán cháo`、不带声调的 `wei nan chao`、
   用 `v` 代替 `ü`（`lǜ` 写成 `lv` 也算对）、全大写、多打空格 —— 都能判对
+* **手机上软键盘弹起来也不慌**：打字面板跟着 `visualViewport` 自动上移，
+  输入框和「提交」按钮不会被键盘挡住
 * **成绩会存下来**：成绩写进浏览器的 `lexiang.typing.history`（打字训练中心的游戏卡片
   会显示最好成绩），同时提交到服务端 `mode=3d-typing`（换台设备也看得见）；
   开场卡片会列出排行榜前三（每分钟字符数 + 正确率）
@@ -230,6 +233,7 @@ python scripts\build_typing3d_bank.py   # 生成 public/typing/data/typing3d-ban
 | WASD 移动 / 碰撞 / 第一与第三人称 | `components/typing3d/engine.ts::updateMovement()`、`updateCamera()`（`V` 键切换视角） |
 | 走近面板按 `E`，或直接点面板 | `engine.ts::updateNearPanel()` 与 `pickAt()` → `Typing3DGame.tsx::openTyping()` |
 | 打字窗口（大题目 + 输入框 + 回车提交） | `Typing3DGame.tsx` 里 `phase === "typing"`；回车在输入框的 `onKeyDown` 里判断 |
+| 手机上软键盘不挡住「提交」按钮 | `Typing3DGame.tsx` 里的 `keyboardInset`（跟 `window.visualViewport` 同步）+ 打字弹层的 `paddingBottom` |
 | 打对 → 面板变绿、门缓缓升起 | `engine.ts::solvePanel()`；开门动画在 `updateAnimations()` 里插值 `doorSlab.position.y` |
 | 打错 → 标红 + 「再试一次」 | `Typing3DGame.tsx::handleSubmit()` 的 else 分支 |
 | 走进打开的门 → 下一关 | `engine.ts::checkDoor()` → `onReachDoor` → 换关 |

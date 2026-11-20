@@ -1,0 +1,7 @@
+# Aquapark.io 复刻（Ursina）依赖
+# 安装：pip install -r aquapark/requirements.txt
+ursina==7.0.0
+# ursina 会自动带上 panda3d（Windows / macOS / Linux 都有对应 wheel）
+# 程序化贴图还需要：
+numpy>=1.24
+pillow>=10.0

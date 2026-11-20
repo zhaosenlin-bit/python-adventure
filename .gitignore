@@ -149,15 +149,18 @@ tmp-br-host-before-fill.png
 # 3D 打字闯关（网页版）QA 截图输出
 .qa-typing3d/
 .qa-home/
+.qa-aquapark/
 game3d/.fontcache/
 game3d/**/__pycache__/
 game3d/.game3d.pid
+aquapark/.aquapark.pid
 
 # AI image generation response metadata may contain temporary signed URLs.
 art/**/*.json
 
 # Aquapark.io 复刻（Ursina）：打包时生成的图标 / 缓存 / 构建产物
-aquapark/assets/
+aquapark/assets/*
+!aquapark/assets/aquapark.ico
 aquapark_save.json
 aquapark/**/__pycache__/
 build/pyinstaller_aquapark/

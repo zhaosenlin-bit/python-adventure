@@ -19,7 +19,7 @@ import { Level } from "@/lib/levels";
 import { getLearningChapter, getLearningCopy, type LearningSubjectId } from "@/lib/learningHub";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { Trophy, LogOut, User, Volume2, VolumeX, Languages, Globe2, BrainCircuit, ExternalLink, Keyboard, Gamepad2, Mountain, Menu, ChevronDown, X } from "lucide-react";
+import { Trophy, LogOut, User, Volume2, VolumeX, Languages, Globe2, BrainCircuit, ExternalLink, Keyboard, Gamepad2, Mountain, Menu, Waves, ChevronDown, X } from "lucide-react";
 import Footer from "@/components/Footer";
 import CoinBalance from "@/components/ui/CoinBalance";
 import CoinHistory from "@/components/ui/CoinHistory";
@@ -321,6 +321,11 @@ export default function Home() {
         router.push('/typing-3d');
     };
 
+    // 水乐园大乱斗是本地桌面游戏（Ursina），页面里再拉起窗口。
+    const handleOpenAquapark = () => {
+        router.push('/aquapark');
+    };
+
     const topQuickLinks = [
         {
             id: 'typing',
@@ -371,6 +376,16 @@ export default function Home() {
             iconClassName: 'text-teal-300',
             buttonClassName: 'top-action-3d border-teal-300/35 bg-teal-500/12 text-teal-100 shadow-teal-500/10',
             onClick: handleOpen3DTyping,
+        },
+        {
+            id: 'aquapark',
+            testId: 'aquapark-button',
+            label: '水乐园大乱斗',
+            title: '玩水乐园大乱斗（Aquapark.io 复刻）',
+            Icon: Waves,
+            iconClassName: 'text-cyan-300',
+            buttonClassName: 'top-action-aquapark border-cyan-300/35 bg-cyan-500/12 text-cyan-100 shadow-cyan-500/10',
+            onClick: handleOpenAquapark,
         },
         {
             id: 'microstudio-game',
