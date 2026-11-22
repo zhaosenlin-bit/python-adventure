@@ -92,7 +92,8 @@ async function resolveAuth() {
         }
         await page.screenshot({ path: path.join(OUT, `50-home-${name}.png`), fullPage: false });
 
-        const tombButton = page.getByRole('button', { name: /古墓剧本杀|Tomb Script Murder/i }).first();
+        // 顶栏也有一个古墓入口，这里只认首页上的大卡片
+        const tombButton = page.locator('[data-testid="tomb-hero-button"]');
         const found = await tombButton.count();
         const worldButton = page.getByRole('button', { name: /开放世界|Open World/i }).first();
         const worldBox = (await worldButton.count()) ? await worldButton.boundingBox() : null;

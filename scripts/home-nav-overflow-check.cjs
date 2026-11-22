@@ -47,6 +47,7 @@ async function resolveAuth() {
 }
 
 const QUICK_LINK_TEST_IDS = [
+    'tomb-entry-button',
     'typing-entry-button',
     'ai-research-button',
     'code-research-button',

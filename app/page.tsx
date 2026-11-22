@@ -316,6 +316,16 @@ export default function Home() {
 
     const topQuickLinks = [
         {
+            id: 'tomb',
+            testId: 'tomb-entry-button',
+            label: t('btn.tombMurder'),
+            title: '进入古墓剧本杀（3D 沉浸推理）',
+            Icon: Skull,
+            iconClassName: 'text-indigo-300',
+            buttonClassName: 'top-action-tomb border-indigo-300/40 bg-indigo-500/15 text-indigo-100 shadow-indigo-500/10',
+            onClick: handleEnterTomb,
+        },
+        {
             id: 'typing',
             testId: 'typing-entry-button',
             label: '\u4eab\u6253\u5b57',
@@ -567,6 +577,7 @@ export default function Home() {
 
                         {/* 古墓剧本杀入口 · 3D 沉浸推理 */}
                         <button
+                            data-testid="tomb-hero-button"
                             onClick={handleEnterTomb}
                             className="relative w-full p-4 sm:p-6 bg-gradient-to-r from-indigo-700 to-purple-800 hover:from-indigo-600 hover:to-purple-700 rounded-xl border-2 sm:border-4 border-indigo-400 transition-all active:scale-95 sm:hover:scale-105 group min-h-[80px]"
                         >
