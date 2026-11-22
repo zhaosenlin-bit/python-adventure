@@ -2,6 +2,7 @@ export const PLAYER_SOURCE_WIDTH = 657;
 export const PLAYER_SOURCE_HEIGHT = 983;
 export const PLAYER_COLLISION_RUNTIME_SIGNATURE = 'player-collision-bottom-aligned-v1';
 export const PLAYER_BASE_VISUAL_HEIGHT = 44;
+export const OPEN_WORLD_PLAYER_VISUAL_HEIGHT = 48;
 export const PLAYER_BASE_COLLISION_WIDTH = 30;
 export const PLAYER_BASE_COLLISION_HEIGHT = 42;
 export const PLAYER_BASE_COLLISION_BOTTOM_PADDING = 1;

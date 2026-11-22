@@ -12,6 +12,7 @@ from app.models.ai_robot import AIRobot
 from app.models.teacher import Teacher
 from app.models.dynamic_task import DynamicTask
 from app.models.inventory import Item, UserInventory
+from app.models.food import FoodInventory
 from app.models.pet import Pet, PetGrowthLog, PetSkin
 from app.models.user_skill import UserSkill
 from app.models.task_submission import TaskFileSubmission
@@ -30,6 +31,7 @@ __all__ = [
     "CharacterTemplate", "QuizQuestion",
     "Skill", "AIRobot", "Teacher", "DynamicTask",
     "Item", "UserInventory", "Pet", "PetGrowthLog", "PetSkin", "UserSkill",
+    "FoodInventory",
     "TaskFileSubmission", "UserProgress", "LevelCompletion",
     "BattleRoom", "BattleSubmission", "UserRank",
     "ChatMessage", "UserChatLimit", "CustomLevel", "LevelLike",

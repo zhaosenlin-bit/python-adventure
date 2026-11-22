@@ -6,6 +6,7 @@ import {
   PLAYER_BASE_VISUAL_HEIGHT,
   getPlayerCollisionSize,
   getPlayerVisualSize,
+  OPEN_WORLD_PLAYER_VISUAL_HEIGHT,
   PLAYER_SOURCE_HEIGHT,
   PLAYER_SOURCE_WIDTH,
 } from '@/lib/game/playerHitbox';
@@ -49,5 +50,15 @@ describe('player hitbox sizing', () => {
   it('falls back to a neutral scale for invalid values', () => {
     expect(getPlayerVisualSize(0)).toEqual(getPlayerVisualSize(1));
     expect(getPlayerCollisionSize(Number.NaN)).toEqual(getPlayerCollisionSize(1));
+  });
+
+  it('keeps scene player sprites far smaller than the source artwork', () => {
+    // 立绘原图比例 657x983：任何场景若忘了设定显示尺寸，就会按原图铺满半个屏幕。
+    const defaultSize = getPlayerVisualSize();
+    const openWorldSize = getPlayerVisualSize(1, OPEN_WORLD_PLAYER_VISUAL_HEIGHT);
+
+    expect(defaultSize.height).toBeLessThanOrEqual(60);
+    expect(openWorldSize.height).toBe(OPEN_WORLD_PLAYER_VISUAL_HEIGHT);
+    expect(openWorldSize.height / PLAYER_SOURCE_HEIGHT).toBeLessThan(0.1);
   });
 });

@@ -21,6 +21,10 @@ export default function Footer() {
           <p className="text-xs sm:text-sm">&copy; {currentYear} 乐启享 | Python Adventure</p>
         </div>
 
+        <p className="text-[11px] text-slate-500">
+          古墓剧本杀模块 · 联合开发：孙铭泽
+        </p>
+
         <p>
           <a
             href="https://beian.miit.gov.cn/"

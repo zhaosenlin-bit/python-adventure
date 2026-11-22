@@ -4,6 +4,8 @@
  * 🔒 安全增强：支持Token认证
  */
 
+import { BACKEND_PORT, BACKEND_WS_PORT } from '@/lib/config/api';
+
 // 生产环境禁用调试日志
 const DEBUG = process.env.NODE_ENV === 'development';
 const debugLog = DEBUG ? console.log.bind(console) : () => {};
@@ -162,9 +164,9 @@ export class WorldSyncService {
             return this.cachedBackendUrl;
         }
         
-        // 开发环境直接访问后端端口
-        const httpUrl = `${protocol}//${host}:8000`;
-        const wsUrl = `${wsProtocol}//${host}:8000`;
+        // 开发环境直接访问后端端口（端口跟 .env.local 的 NEXT_PUBLIC_API_PORT 走）
+        const httpUrl = `${protocol}//${host}:${BACKEND_PORT}`;
+        const wsUrl = `${wsProtocol}//${host}:${BACKEND_WS_PORT}`;
         
         this.cachedBackendUrl = { httpUrl, wsUrl };
         return this.cachedBackendUrl;

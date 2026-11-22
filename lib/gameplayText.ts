@@ -8,6 +8,7 @@ export interface GameplayControlOptions {
   isTimeSlowActive?: boolean;
   hasShield?: boolean;
   isShieldActive?: boolean;
+  hasTeleport?: boolean;
 }
 
 export type CampaignQuestionMode = 'challenge' | 'clear' | 'retry';
@@ -26,6 +27,7 @@ export const SKILL_SHORT_INSTRUCTIONS: Record<string, string> = {
   time_slow: '按 J 减速',
   chemical_shield: '按 K 开盾',
   quantum_dash: '按 H 量子冲刺（SPACE 也可）',
+  teleport: '按 O 瞬移回起点',
 };
 
 const getDashHint = (isQuantumDash = false) =>
@@ -43,6 +45,7 @@ const buildAdvancedHints = (options: GameplayControlOptions) => {
   if (options.hasWallJump) hints.push('墙跳 贴墙后按 W/↑');
   if (options.hasTimeSlow) hints.push(getTimeSlowHint(options.isTimeSlowActive));
   if (options.hasShield) hints.push(getShieldHint(options.isShieldActive));
+  if (options.hasTeleport) hints.push('O 瞬移回起点');
 
   return hints;
 };

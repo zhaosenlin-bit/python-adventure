@@ -1,11 +1,11 @@
 // Service Worker for caching Pyodide (Production Silent Mode)
-const CACHE_NAME = 'pyodide-cache-v1';
+const CACHE_NAME = 'pyodide-cache-v2';
 const PYODIDE_FILES = [
   '/pyodide/pyodide.js',
   '/pyodide/pyodide.asm.js',
   '/pyodide/pyodide.asm.wasm',
-  '/pyodide/pyodide_py.tar',
-  '/pyodide/packages.json'
+  '/pyodide/pyodide-lock.json',
+  '/pyodide/python_stdlib.zip'
 ];
 
 self.addEventListener('install', (event) => {

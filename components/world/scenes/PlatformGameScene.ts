@@ -222,6 +222,7 @@ export default class PlatformGameScene extends Phaser.Scene {
     };
     private actionKeys!: {
         interact: Phaser.Input.Keyboard.Key;
+        interactAlt: Phaser.Input.Keyboard.Key;
         attack: Phaser.Input.Keyboard.Key;
         dash: Phaser.Input.Keyboard.Key;
         timeSlow: Phaser.Input.Keyboard.Key;
@@ -229,6 +230,10 @@ export default class PlatformGameScene extends Phaser.Scene {
     };
 
     private playerHP: number = 100;
+    private playerSpawnX: number = 0;
+    private playerSpawnY: number = 0;
+    private levelGravityScale: number = 1;
+    private levelBaseGravity: number = 800;  // 离开重力区域后恢复的重力
     private maxHP: number = 100;
     private score: number = 0;
     private defeatedEnemies: number = 0;
@@ -2798,6 +2803,9 @@ export default class PlatformGameScene extends Phaser.Scene {
             debugLog('[PlatformGameScene] 使用默认起始位置:', startX, startY);
         }
 
+        this.levelGravityScale = Number(campaignMapDataForPlayer?.gravityScale ?? mapData?.gravityScale ?? 1) || 1;
+        this.playerSpawnX = startX;
+        this.playerSpawnY = startY;
         this.player = this.physics.add.sprite(startX, startY, 'playerChar');
         debugLog('🔥🔥🔥 [v21:22] 玩家创建后的实际位置:', this.player.x, this.player.y, '🔥🔥🔥');
 
@@ -2826,6 +2834,11 @@ export default class PlatformGameScene extends Phaser.Scene {
         }
 
         this.player.setBounce(0.1);
+        if (this.levelGravityScale !== 1) {
+            this.levelBaseGravity = 500 * this.levelGravityScale;
+            body.setGravityY(500 * this.levelGravityScale);
+            debugLog('[PlatformGameScene] 关卡重力倍率:', this.levelGravityScale);
+        }
         this.player.setData('velocityBeforeGlide', 0);
 
         // 🔥 设置玩家深度，确保在敌人和收集物之上
@@ -2852,6 +2865,7 @@ export default class PlatformGameScene extends Phaser.Scene {
             }) as typeof this.moveKeys;
             this.actionKeys = this.input.keyboard.addKeys({
                 interact: Phaser.Input.Keyboard.KeyCodes.F,
+                interactAlt: Phaser.Input.Keyboard.KeyCodes.E,
                 attack: Phaser.Input.Keyboard.KeyCodes.G,
                 dash: Phaser.Input.Keyboard.KeyCodes.H,
                 timeSlow: Phaser.Input.Keyboard.KeyCodes.J,
@@ -4889,7 +4903,13 @@ export default class PlatformGameScene extends Phaser.Scene {
             this.activateChemicalShield();
         }
 
-        if (touchInteractJustPressed) {
+        // 互动键：HUD 提示「互动 E/F」，E 与 F 都要生效，
+        // 行为与触屏「用」按钮保持一致。
+        const interactJustPressed =
+            Phaser.Input.Keyboard.JustDown(this.actionKeys.interact) ||
+            Phaser.Input.Keyboard.JustDown(this.actionKeys.interactAlt) ||
+            touchInteractJustPressed;
+        if (interactJustPressed) {
             if (this.hasChemicalShieldSkill() && this.chemicalShieldCooldown <= 0 && this.chemicalShieldDuration <= 0) {
                 this.activateChemicalShield();
             } else if (this.hasSkill('time_slow') && this.timeSlowCooldown <= 0 && this.timeSlowDuration <= 0) {
@@ -4912,12 +4932,10 @@ export default class PlatformGameScene extends Phaser.Scene {
         // 检测玩家是否掉落到世界外（使用实际世界高度）
         const worldHeight = this.physics.world.bounds.height || 600;
         if (!this.isGameOver && this.player.y > worldHeight + 50) {
-            debugLog('[PlatformGameScene] 玩家掉落，y坐标:', this.player.y, '世界高度:', worldHeight);
-            this.isGameOver = true;
-            // 播放掉落音效
-            this.playSound('player_hurt');
-            // 自动触发游戏失败
-            this.gameOver(false);
+            debugLog('[PlatformGameScene] 玩家掉落，y坐标:', this.player.y, '，世界高度:', worldHeight);
+            this.takeDamage(2);
+            this.player.setPosition(this.playerSpawnX, this.playerSpawnY);
+            this.player.setVelocity(0, 0);
         }
 
         // 更新子弹位置（保留子弹的图形更新）
@@ -5329,7 +5347,7 @@ export default class PlatformGameScene extends Phaser.Scene {
                     this.currentGravityMultiplier = gravityMultiplier;
 
                     // 🔥 设置强力反重力（-800让玩家快速"掉"到天花板）
-                    const gravityStrength = 800;
+                    const gravityStrength = 800 * this.levelGravityScale;
                     body.setGravityY(gravityStrength * gravityMultiplier);
 
                     // 翻转玩家图像
@@ -5363,7 +5381,7 @@ export default class PlatformGameScene extends Phaser.Scene {
         // 离开重力区域后恢复正常
         if (!inGravityZone && this.currentGravityMultiplier !== 1) {
             this.currentGravityMultiplier = 1;
-            body.setGravityY(800);  // 恢复正常重力
+            body.setGravityY(this.levelBaseGravity);  // 恢复正常重力
             this.player.setFlipY(false);
         }
     }

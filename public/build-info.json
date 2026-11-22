@@ -1,1 +1,1 @@
-{"release":"v20261003-collision-deploy-r2","collision":"30x42-bottom-aligned","playerArtwork":"657x983-aspect-preserved","runtimeSignature":"player-collision-bottom-aligned-v1","deploy":"pm2-clean-start-runtime-gated-permissions-gated"}
+{"release":"v20261031-gravity-fallout-r1","collision":"30x42-bottom-aligned","playerArtwork":"657x983-aspect-preserved","runtimeSignature":"player-collision-bottom-aligned-v1","deploy":"pm2-clean-start-runtime-gated-permissions-gated"}

@@ -6,6 +6,32 @@ from datetime import datetime
 from typing import Optional, Dict, Any
 from pydantic import BaseModel, Field
 
+from sqlalchemy import Column, Integer, String, UniqueConstraint
+
+from app.core.database import Base
+
+
+class FoodInventory(Base):
+    """用户食物背包
+
+    这张表历史上只靠接口里的临时建表语句创建，而「发放奖励」「添加食物」
+    这些写接口没有带建表，表缺失时会直接抛 500。
+    这里声明成模型，由 Base.metadata.create_all 在启动时统一建好，
+    字段与接口里的原始 SQL 建表语句保持一致。
+    """
+    __tablename__ = "food_inventory"
+    __table_args__ = (
+        UniqueConstraint("user_id", "food_id", name="uq_food_inventory_user_food"),
+        {"sqlite_autoincrement": True},
+    )
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, nullable=False, index=True)
+    food_id = Column(String, nullable=False)
+    quantity = Column(Integer, nullable=False, default=0)
+    created_at = Column(String, nullable=False)
+    updated_at = Column(String, nullable=False)
+
 
 class FoodType(BaseModel):
     """食物类型定义"""

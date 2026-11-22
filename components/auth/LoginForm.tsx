@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 import { Lock, RefreshCcw, Sparkles, User } from 'lucide-react';
 
 import { useAuthStore } from '@/store/authStore';
+import BackendStartHint from './BackendStartHint';
 
 interface LoginFormProps {
   onSwitchToRegister: () => void;
@@ -14,7 +15,7 @@ export default function LoginForm({ onSwitchToRegister }: LoginFormProps) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showResetPanel, setShowResetPanel] = useState(false);
-  const { login, isLoading, error, clearError } = useAuthStore();
+  const { login, isLoading, error, errorKind, clearError } = useAuthStore();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -50,6 +51,12 @@ export default function LoginForm({ onSwitchToRegister }: LoginFormProps) {
           >
             {error}
           </motion.div>
+        )}
+
+        {errorKind === 'network' && (
+          <div className="mb-4">
+            <BackendStartHint />
+          </div>
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">

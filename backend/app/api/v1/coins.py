@@ -20,6 +20,10 @@ CLIENT_COIN_LIMITS = {
     "level_complete": 50,
     "wheel_spin": 100,
     "campaign_level_complete": 300,
+    # 完成整个战役的奖励。前端 PlatformGame 用的就是 'campaign_complete'，
+    # 之前漏在白名单外，导致结算时后端一直返回 400、玩家拿不到这笔金币。
+    # 战役最高 500 金币，叠加「校园之星」1.1 倍加成是 550，这里留到 600。
+    "campaign_complete": 600,
     "code_research": 300,
 }
 MAX_DESCRIPTION_LENGTH = 255

@@ -142,6 +142,18 @@
       drop-shadow(0 16px 28px rgba(2, 6, 23, 0.28))
       drop-shadow(0 4px 10px rgba(2, 6, 23, 0.14));
   }
+
+  /* 古墓剧本杀的触屏摇杆：按输入方式判定，而不是只看屏幕宽度，
+     这样平板 / 折叠屏在横屏时同样能拿到虚拟摇杆。 */
+  .tomb-touch-controls {
+    display: none;
+  }
+
+  @media (pointer: coarse), (hover: none), (max-width: 640px) {
+    .tomb-touch-controls {
+      display: flex;
+    }
+  }
 }
 
 /* Scrollbar */

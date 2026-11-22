@@ -3,6 +3,7 @@ import { ArenaChallenge, getArenaChallengeById, getArenaChallengesByDifficulty }
 import { touchInputManager, TouchInputState } from '@/lib/input/TouchInputManager';
 import { getArenaRewardClaimsUsed, ARENA_DAILY_DIAMOND_LIMIT } from '@/lib/arenaRewards';
 import { ARENA_CONTROLS_HINT } from '@/lib/gameplayText';
+import { getPlayerVisualSize } from '@/lib/game/playerHitbox';
 
 // 生产环境禁用调试日志
 const DEBUG = process.env.NODE_ENV === 'development';
@@ -19,6 +20,7 @@ export class ArenaScene extends Phaser.Scene {
         right: Phaser.Input.Keyboard.Key;
     };
     private interactKey!: Phaser.Input.Keyboard.Key;
+    private eKey!: Phaser.Input.Keyboard.Key;
     private currentChallenge: ArenaChallenge | null = null;
     private timeRemaining: number = 0;
     private timerText!: Phaser.GameObjects.Text;
@@ -163,6 +165,10 @@ export class ArenaScene extends Phaser.Scene {
 
         // Player
         this.player = this.physics.add.sprite(width / 2, height - 100, 'player');
+        // 玩家立绘原图 256x383，必须显式设定显示尺寸，否则会按原图铺满半个屏幕
+        // （碰撞体会自动跟随显示尺寸，见 Phaser Body.preUpdate）。
+        const { width: playerDisplayWidth, height: playerDisplayHeight } = getPlayerVisualSize();
+        this.player.setDisplaySize(playerDisplayWidth, playerDisplayHeight);
         this.player.setBounce(0.1);
         this.player.setCollideWorldBounds(true);
 
@@ -179,6 +185,8 @@ export class ArenaScene extends Phaser.Scene {
                 right: Phaser.Input.Keyboard.KeyCodes.D,
             }) as typeof this.moveKeys;
             this.interactKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.F);
+            // HUD 提示「靠近台座按 E/F」，E 与 F 都要能触发互动
+            this.eKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.E);
         }
 
         // Check if player has double jump skill from window global
@@ -285,6 +293,7 @@ export class ArenaScene extends Phaser.Scene {
                 this.moveKeys.right.isDown = false;
             }
             if (this.interactKey) this.interactKey.isDown = false;
+            if (this.eKey) this.eKey.isDown = false;
             
             // 清除按键队列
             this.input.keyboard.resetKeys();
@@ -431,7 +440,7 @@ export class ArenaScene extends Phaser.Scene {
             // 3. 该区域没有被触发过（或已完成冷却）
             // 4. 不在挑战完成的冷却期内
             const touchState = touchInputManager.getState();
-            const wantsInteract = this.interactKey?.isDown || touchState.interact;
+            const wantsInteract = this.interactKey?.isDown || this.eKey?.isDown || touchState.interact;
             if (wantsInteract && 
                 !this.currentChallenge && 
                 !zone.getData('triggered') &&
@@ -443,7 +452,7 @@ export class ArenaScene extends Phaser.Scene {
         });
 
         // Interactive hint
-        const hint = this.add.text(x, y + 70, 'F / 触控键开始挑战', {
+        const hint = this.add.text(x, y + 70, 'E / F / 触控键开始挑战', {
             fontSize: '12px',
             color: '#00ffff',
             backgroundColor: '#000000cc',
@@ -835,6 +844,7 @@ export class ArenaScene extends Phaser.Scene {
         const inputLeft = this.cursors.left.isDown || this.moveKeys.left.isDown || touchState.left;
         const inputRight = this.cursors.right.isDown || this.moveKeys.right.isDown || touchState.right;
         const inputUp = this.cursors.up.isDown || this.moveKeys.up.isDown || touchState.up || touchState.jump;
+        const inputDown = this.cursors.down.isDown || this.moveKeys.down.isDown || touchState.down;
 
         // Reset near challenge flag
         this.isNearChallenge = false;
@@ -861,6 +871,15 @@ export class ArenaScene extends Phaser.Scene {
                                      (touchState.jump && !this.lastTouchState.jump);
         if ((Phaser.Input.Keyboard.JustDown(this.cursors.up) || Phaser.Input.Keyboard.JustDown(this.moveKeys.up) || touchJumpJustPressed) && !this.isNearChallenge) {
             this.handleJump();
+        }
+
+        // 快速下落：空中按住 ↓/S 加速下坠（方向键下 / S 不再是空键）
+        const body = this.player.body as Phaser.Physics.Arcade.Body;
+        if (inputDown && !body.touching.down && body.velocity.y > 0) {
+            body.velocity.y = Math.min(
+                body.velocity.y + 1500 * (this.game.loop.delta / 1000),
+                900,
+            );
         }
 
         // Reset jump count when touching ground

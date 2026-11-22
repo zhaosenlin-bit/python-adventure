@@ -4,6 +4,17 @@
  */
 
 /**
+ * 后端端口。默认 8000，可用 .env.local 里的 NEXT_PUBLIC_API_PORT 覆盖。
+ *
+ * 本机同时跑着别的项目（也占 8000）时，只要改这一个值，
+ * 前端请求地址、WebSocket、一键启动后端、QA 脚本都会跟着走。
+ */
+export const BACKEND_PORT = Number(process.env.NEXT_PUBLIC_API_PORT) || 8000;
+
+/** WebSocket 端口，默认跟 HTTP 端口一致 */
+export const BACKEND_WS_PORT = Number(process.env.NEXT_PUBLIC_WS_PORT) || BACKEND_PORT;
+
+/**
  * 判断是否为生产环境
  */
 function isProduction(): boolean {
@@ -39,7 +50,7 @@ export function getApiBaseUrl(): string {
     }
     
     // 开发环境：直接访问后端端口
-    return `${protocol}//${hostname}:8000/api/v1`;
+    return `${protocol}//${hostname}:${BACKEND_PORT}/api/v1`;
 }
 
 /**
@@ -47,7 +58,7 @@ export function getApiBaseUrl(): string {
  */
 export function getWebSocketUrl(path: string): string {
     if (typeof window === 'undefined') {
-        return `ws://localhost:8000${path}`;
+    return `ws://localhost:${BACKEND_WS_PORT}${path}`;
     }
     
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -59,7 +70,7 @@ export function getWebSocketUrl(path: string): string {
     }
     
     // 开发环境：直接访问后端端口
-    return `${protocol}//${hostname}:8000${path}`;
+    return `${protocol}//${hostname}:${BACKEND_WS_PORT}${path}`;
 }
 
 // 导出常量（兼容旧代码）

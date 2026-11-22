@@ -19,7 +19,7 @@ import { Level } from "@/lib/levels";
 import { getLearningChapter, getLearningCopy, type LearningSubjectId } from "@/lib/learningHub";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { Trophy, LogOut, User, Volume2, VolumeX, Languages, Globe2, BrainCircuit, ExternalLink, Keyboard, Gamepad2, Menu, X } from "lucide-react";
+import { Trophy, LogOut, User, Volume2, VolumeX, Languages, Globe2, BrainCircuit, ExternalLink, Keyboard, Gamepad2, Menu, Skull, X } from "lucide-react";
 import Footer from "@/components/Footer";
 import CoinBalance from "@/components/ui/CoinBalance";
 import CoinHistory from "@/components/ui/CoinHistory";
@@ -52,6 +52,11 @@ export default function Home() {
     const { language, setLanguage, t } = useI18n();
     const musicInitialized = useRef(false);
     const quickLinksMenuRef = useRef<HTMLDivElement | null>(null);
+    const navActionsRef = useRef<HTMLDivElement | null>(null);
+    const navMeasureRef = useRef<HTMLDivElement | null>(null);
+    const navReservedRef = useRef<HTMLDivElement | null>(null);
+    // 第一栏里实际显示几个入口。0 表示全部收进「更多」。
+    const [inlineQuickLinkCount, setInlineQuickLinkCount] = useState(0);
     const tokenValidated = useRef(false); // 🔒 防止重复验证
 
     useEffect(() => {
@@ -151,6 +156,56 @@ export default function Home() {
         };
     }, [showQuickLinksMenu]);
 
+    /**
+     * 入口自适应：按剩余宽度决定第一栏放得下几个入口，放不下的自动进「更多」。
+     * 不按断点写死，新增入口后无需再调样式表。
+     */
+    useEffect(() => {
+        const CHIP_GAP = 8;
+        const TOGGLE_RESERVE = 120;
+
+        const recalc = () => {
+            const actions = navActionsRef.current;
+            const ruler = navMeasureRef.current;
+            if (!actions || !ruler || ruler.children.length === 0) return;
+
+            const chipWidths = Array.from(ruler.children).map(
+                (node) => node.getBoundingClientRect().width,
+            );
+            // 首帧或字体未加载时量出来全是 0，先跳过，等 ResizeObserver / fonts.ready 再算
+            if (chipWidths.every((width) => width === 0)) return;
+
+            const reserved = navReservedRef.current?.getBoundingClientRect().width ?? 0;
+            const budget = actions.clientWidth - reserved - TOGGLE_RESERVE - CHIP_GAP;
+
+            let count = 0;
+            let used = 0;
+            for (const width of chipWidths) {
+                const next = used + width + (count > 0 ? CHIP_GAP : 0);
+                if (next > budget) break;
+                used = next;
+                count += 1;
+            }
+            setInlineQuickLinkCount((current) => (current === count ? current : count));
+        };
+
+        recalc();
+        const frame = requestAnimationFrame(recalc);
+        const observer = new ResizeObserver(recalc);
+        if (navActionsRef.current) observer.observe(navActionsRef.current);
+        if (navMeasureRef.current) observer.observe(navMeasureRef.current);
+        if (navReservedRef.current) observer.observe(navReservedRef.current);
+        window.addEventListener('resize', recalc);
+        // 字体到位后宽度会变，再补算一次
+        const fontsReady = document.fonts?.ready;
+        fontsReady?.then(recalc).catch(() => undefined);
+        return () => {
+            cancelAnimationFrame(frame);
+            observer.disconnect();
+            window.removeEventListener('resize', recalc);
+        };
+    }, []);
+
     // 🔒 验证中显示加载状态
     if (!mounted || isValidating) {
         return (
@@ -219,6 +274,12 @@ export default function Home() {
         // 停止主页音乐
         musicManager.stop();
         router.push('/world');
+    };
+
+    const handleEnterTomb = () => {
+        // 停止主页音乐
+        musicManager.stop();
+        router.push('/tomb');
     };
 
     const handleOpenAiResearch = () => {
@@ -306,6 +367,10 @@ export default function Home() {
         },
     ] as const;
 
+    /** 第一栏入口的统一外观：量尺和真身共用，保证测量宽度一致 */
+    const quickLinkChipClass =
+        'top-action-cta group inline-flex min-h-[44px] shrink-0 items-center gap-2 rounded-full border px-3 py-2 text-sm font-medium shadow-lg transition-all duration-200 ease-out hover:-translate-y-0.5 hover:scale-[1.02] hover:text-slate-950 hover:shadow-xl hover:ring-2 active:translate-y-0 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2';
+
     return (
         <main className="min-h-screen bg-gradient-to-b from-[#0a0e27] via-[#1a1e3e] to-[#0a0e27] text-white">
             {/* 🔒 进度同步状态指示器 */}
@@ -335,43 +400,74 @@ export default function Home() {
                     </div>
                     <div className="text-xs sm:text-sm text-slate-400 hidden sm:block">{t('app.welcome', { username: user?.username || '' })}</div>
                 </div>
-                <div className="flex w-full flex-wrap items-center justify-end gap-2 sm:gap-3 lg:w-auto lg:flex-nowrap">
-                    <div ref={quickLinksMenuRef} className="relative">
-                        <div className="hidden items-center gap-2 lg:flex">
-                            {topQuickLinks.map((link) => {
-                                const Icon = link.Icon;
-                                return (
-                                    <button
-                                        key={link.id}
-                                        data-testid={link.testId}
-                                        onClick={link.onClick}
-                                        className={`top-action-cta group inline-flex min-h-[44px] transform-gpu items-center gap-2 rounded-full border px-3 py-2 shadow-lg transition-all duration-200 ease-out hover:-translate-y-0.5 hover:scale-[1.02] hover:text-slate-950 hover:shadow-xl hover:ring-2 active:translate-y-0 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 ${link.buttonClassName}`}
-                                        title={link.title}
-                                    >
-                                        <Icon className={`h-4 w-4 transition-all duration-200 group-hover:scale-110 group-hover:text-slate-950 ${link.iconClassName}`} />
-                                        <span className="hidden text-sm font-medium xl:inline">{link.label}</span>
-                                        <ExternalLink className="hidden h-3.5 w-3.5 transition-all duration-200 group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-slate-950 xl:block" />
-                                    </button>
-                                );
-                            })}
-                        </div>
-                        <button
-                            type="button"
-                            data-testid="quick-links-toggle"
-                            onClick={() => setShowQuickLinksMenu((current) => !current)}
-                            className="top-action-cta inline-flex min-h-[44px] items-center gap-2 rounded-full border border-cyan-400/25 bg-slate-950/60 px-3 py-2 text-cyan-100 shadow-lg shadow-cyan-950/30 transition-colors hover:bg-slate-900/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/70 lg:hidden"
-                            aria-expanded={showQuickLinksMenu}
-                            aria-haspopup="menu"
-                            aria-label={'\u6253\u5f00\u5b66\u4e60\u5165\u53e3\u83dc\u5355'}
-                        >
-                            {showQuickLinksMenu ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
-                            <span className="text-sm font-medium">{'\u5b66\u4e60\u5165\u53e3'}</span>
-                        </button>
-                        {showQuickLinksMenu && (
-                            <div className="absolute left-0 top-[calc(100%+0.6rem)] z-50 w-[min(18rem,calc(100vw-1.5rem))] rounded-2xl border border-cyan-400/20 bg-[#071427]/95 p-3 shadow-[0_24px_60px_rgba(2,12,27,0.6)] backdrop-blur-xl sm:left-auto sm:right-0 lg:hidden">
+                <div
+                    ref={navActionsRef}
+                    className="relative flex min-w-0 flex-1 flex-wrap items-center justify-end gap-2 sm:gap-3"
+                >
+                    {/* 量尺：用完整样式渲染所有入口，只量宽度，不出现在画面里 */}
+                    <div
+                        ref={navMeasureRef}
+                        aria-hidden="true"
+                        className="pointer-events-none invisible absolute left-0 top-0 flex max-w-full items-center gap-2 overflow-hidden whitespace-nowrap"
+                    >
+                        {topQuickLinks.map((link) => {
+                            const Icon = link.Icon;
+                            return (
+                                <span
+                                    key={`measure-${link.id}`}
+                                    className={`${quickLinkChipClass} ${link.buttonClassName}`}
+                                >
+                                    <Icon className={`h-4 w-4 ${link.iconClassName}`} />
+                                    <span>{link.label}</span>
+                                    <ExternalLink className="h-3.5 w-3.5" />
+                                </span>
+                            );
+                        })}
+                    </div>
+
+                    <div ref={quickLinksMenuRef} className="relative flex min-w-0 items-center gap-2">
+                        {topQuickLinks.slice(0, inlineQuickLinkCount).map((link) => {
+                            const Icon = link.Icon;
+                            return (
+                                <button
+                                    key={link.id}
+                                    data-testid={link.testId}
+                                    onClick={link.onClick}
+                                    className={`${quickLinkChipClass} ${link.buttonClassName}`}
+                                    title={link.title}
+                                >
+                                    <Icon className={`h-4 w-4 transition-all duration-200 group-hover:scale-110 group-hover:text-slate-950 ${link.iconClassName}`} />
+                                    <span className="text-sm font-medium">{link.label}</span>
+                                    <ExternalLink className="h-3.5 w-3.5 transition-all duration-200 group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-slate-950" />
+                                </button>
+                            );
+                        })}
+                        {inlineQuickLinkCount < topQuickLinks.length && (
+                            <button
+                                type="button"
+                                data-testid="quick-links-toggle"
+                                onClick={() => setShowQuickLinksMenu((current) => !current)}
+                                className="top-action-cta inline-flex min-h-[44px] shrink-0 items-center gap-2 rounded-full border border-cyan-400/25 bg-slate-950/60 px-3 py-2 text-cyan-100 shadow-lg shadow-cyan-950/30 transition-colors hover:bg-slate-900/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/70"
+                                aria-expanded={showQuickLinksMenu}
+                                aria-haspopup="menu"
+                                aria-label={'\u6253\u5f00\u5b66\u4e60\u5165\u53e3\u83dc\u5355'}
+                            >
+                                {showQuickLinksMenu ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
+                                <span className="text-sm font-medium">
+                                    {inlineQuickLinkCount === 0 ? '\u5b66\u4e60\u5165\u53e3' : '\u66f4\u591a'}
+                                </span>
+                                {inlineQuickLinkCount > 0 && (
+                                    <span className="rounded-full bg-cyan-400/15 px-1.5 text-[11px] leading-5 text-cyan-200">
+                                        {topQuickLinks.length - inlineQuickLinkCount}
+                                    </span>
+                                )}
+                            </button>
+                        )}
+                        {showQuickLinksMenu && inlineQuickLinkCount < topQuickLinks.length && (
+                            <div className="absolute right-0 top-[calc(100%+0.6rem)] z-50 w-[min(18rem,calc(100vw-1.5rem))] rounded-2xl border border-cyan-400/20 bg-[#071427]/95 p-3 shadow-[0_24px_60px_rgba(2,12,27,0.6)] backdrop-blur-xl">
                                 <div className="mb-2 px-1 text-[11px] uppercase tracking-[0.2em] text-cyan-200/70">{'\u5b66\u4e60\u5165\u53e3'}</div>
                                 <div className="flex flex-col gap-2">
-                                    {topQuickLinks.map((link) => {
+                                    {topQuickLinks.slice(inlineQuickLinkCount).map((link) => {
                                         const Icon = link.Icon;
                                         return (
                                             <button
@@ -399,71 +495,94 @@ export default function Home() {
                             </div>
                         )}
                     </div>
-                    <div className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1 bg-blue-900/30 rounded">
-                        <User className="w-4 h-4 text-blue-400" />
-                        <span className="text-xs sm:text-sm">Lv.{userLevel}</span>
+
+                    <div ref={navReservedRef} className="flex shrink-0 items-center gap-1 sm:gap-2">
+                        <div className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1 bg-blue-900/30 rounded">
+                            <User className="w-4 h-4 text-blue-400" />
+                            <span className="text-xs sm:text-sm">Lv.{userLevel}</span>
+                        </div>
+                        {/* 金币显示 */}
+                        <CoinBalance
+                            initialCoins={coins}
+                            size="sm"
+                            onClick={() => setShowCoinHistory(true)}
+                        />
+                        <button
+                            onClick={handleToggleMute}
+                            className="p-2 sm:p-2 hover:bg-blue-900/30 rounded transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
+                            title={isMuted ? t('btn.soundOff') : t('btn.soundOn')}
+                        >
+                            {isMuted ? (
+                                <VolumeX className="w-5 h-5 text-gray-400" />
+                            ) : (
+                                <Volume2 className="w-5 h-5 text-green-400" />
+                            )}
+                        </button>
+                        <button
+                            onClick={handleToggleLanguage}
+                            className="p-2 hover:bg-blue-900/30 rounded transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
+                            title={language === 'cn' ? t('btn.switchToEnglish') : t('btn.switchToChinese')}
+                        >
+                            <Languages className="w-5 h-5 text-blue-400" />
+                            <span className="ml-1 text-xs hidden sm:inline">{language === 'cn' ? 'EN' : '\u4e2d'}</span>
+                        </button>
+                        <button
+                            onClick={() => setShowLeaderboard(true)}
+                            className="p-2 hover:bg-blue-900/30 rounded transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
+                            title={t('ui.leaderboard')}
+                        >
+                            <Trophy className="w-5 h-5 text-yellow-400" />
+                        </button>
+                        <button
+                            onClick={handleLogout}
+                            className="p-2 hover:bg-red-900/30 rounded transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
+                            title={t('btn.logout')}
+                        >
+                            <LogOut className="w-5 h-5 text-red-400" />
+                        </button>
                     </div>
-                    {/* 金币显示 */}
-                    <CoinBalance 
-                        initialCoins={coins}
-                        size="sm"
-                        onClick={() => setShowCoinHistory(true)}
-                    />
-                    <button
-                        onClick={handleToggleMute}
-                        className="p-2 sm:p-2 hover:bg-blue-900/30 rounded transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
-                        title={isMuted ? t('btn.soundOff') : t('btn.soundOn')}
-                    >
-                        {isMuted ? (
-                            <VolumeX className="w-5 h-5 text-gray-400" />
-                        ) : (
-                            <Volume2 className="w-5 h-5 text-green-400" />
-                        )}
-                    </button>
-                    <button
-                        onClick={handleToggleLanguage}
-                        className="p-2 hover:bg-blue-900/30 rounded transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
-                        title={language === 'cn' ? t('btn.switchToEnglish') : t('btn.switchToChinese')}
-                    >
-                        <Languages className="w-5 h-5 text-blue-400" />
-                        <span className="ml-1 text-xs hidden sm:inline">{language === 'cn' ? 'EN' : '\u4e2d'}</span>
-                    </button>
-                    <button
-                        onClick={() => setShowLeaderboard(true)}
-                        className="p-2 hover:bg-blue-900/30 rounded transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
-                        title={t('ui.leaderboard')}
-                    >
-                        <Trophy className="w-5 h-5 text-yellow-400" />
-                    </button>
-                    <button
-                        onClick={handleLogout}
-                        className="p-2 hover:bg-red-900/30 rounded transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
-                        title={t('btn.logout')}
-                    >
-                        <LogOut className="w-5 h-5 text-red-400" />
-                    </button>
                 </div>
             </div>
 
             {/* Main Content - 响应式适配 */}
             {view === 'home' && (
                 <div className="max-w-6xl mx-auto p-4 sm:p-8">
-                    {/* Open World Button - 移动端优化 */}
-                    {/* 开放世界按钮 */}
-                    <button
-                        onClick={handleEnterWorld}
-                        className="relative w-full mb-4 sm:mb-8 p-4 sm:p-6 bg-gradient-to-r from-yellow-600 to-orange-600 hover:from-yellow-500 hover:to-orange-500 rounded-xl border-2 sm:border-4 border-yellow-400 transition-all active:scale-95 sm:hover:scale-105 group min-h-[80px]"
-                    >
-                        <div className="flex items-center justify-center gap-2 sm:gap-4">
-                            <span className="flex h-10 w-10 items-center justify-center rounded-2xl border border-yellow-100/30 bg-white/10 text-white sm:h-14 sm:w-14">
-                                <Globe2 className="h-5 w-5 sm:h-7 sm:w-7" />
-                            </span>
-                            <div className="text-left">
-                                <h2 className="text-xl sm:text-3xl font-pixel text-white">{t('btn.openWorld')}</h2>
-                                <p className="text-yellow-100 text-xs sm:text-sm mt-1">{t('btn.openWorld.desc')}</p>
+                    {/* 两个 3D 世界入口并排：开放世界 / 古墓剧本杀 */}
+                    <div className="grid grid-cols-1 gap-4 mb-6 md:grid-cols-2">
+                        {/* 开放世界按钮 */}
+                        <button
+                            onClick={handleEnterWorld}
+                            className="relative w-full p-4 sm:p-6 bg-gradient-to-r from-yellow-600 to-orange-600 hover:from-yellow-500 hover:to-orange-500 rounded-xl border-2 sm:border-4 border-yellow-400 transition-all active:scale-95 sm:hover:scale-105 group min-h-[80px]"
+                        >
+                            <div className="flex items-center justify-center gap-2 sm:gap-4">
+                                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-yellow-100/30 bg-white/10 text-white sm:h-14 sm:w-14">
+                                    <Globe2 className="h-5 w-5 sm:h-7 sm:w-7" />
+                                </span>
+                                <div className="text-left">
+                                    <h2 className="text-xl sm:text-3xl font-pixel text-white">{t('btn.openWorld')}</h2>
+                                    <p className="text-yellow-100 text-xs sm:text-sm mt-1">{t('btn.openWorld.desc')}</p>
+                                </div>
                             </div>
-                        </div>
-                    </button>
+                        </button>
+
+                        {/* 古墓剧本杀入口 · 3D 沉浸推理 */}
+                        <button
+                            onClick={handleEnterTomb}
+                            className="relative w-full p-4 sm:p-6 bg-gradient-to-r from-indigo-700 to-purple-800 hover:from-indigo-600 hover:to-purple-700 rounded-xl border-2 sm:border-4 border-indigo-400 transition-all active:scale-95 sm:hover:scale-105 group min-h-[80px]"
+                        >
+                            <div className="flex items-center justify-center gap-2 sm:gap-4">
+                                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-indigo-100/30 bg-white/10 text-white sm:h-14 sm:w-14">
+                                    <Skull className="h-5 w-5 sm:h-7 sm:w-7" />
+                                </span>
+                                <div className="text-left">
+                                    <h2 className="text-xl sm:text-3xl font-pixel text-white">{t('btn.tombMurder')}</h2>
+                                    <p className="text-indigo-100 text-xs sm:text-sm mt-1">{t('btn.tombMurder.desc')}</p>
+                                </div>
+                            </div>
+                        </button>
+                    </div>
+
+
 
                     {!selectedSubject ? (
                         <SubjectSelect

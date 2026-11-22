@@ -9,6 +9,12 @@ const nextConfig: NextConfig = {
   // Needed after upgrading Next 16.2.x: QA scripts hit 127.0.0.1 in dev.
   allowedDevOrigins: ['127.0.0.1', 'localhost'],
   transpilePackages: ['phaser'],
+  // /api/dev/backend 只在开发期生效（生产环境直接返回 403），
+  // 它会用 node:child_process 拉起本地后端，动态文件访问会被 Turbopack
+  // 误判成「要追踪整个项目」，导致发布包体积暴涨，这里显式排除。
+  outputFileTracingExcludes: {
+    '/api/dev/backend': ['**/*'],
+  },
   async headers() {
     return [
       {

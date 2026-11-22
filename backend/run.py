@@ -1,6 +1,7 @@
 """
 启动FastAPI服务器
 """
+import os
 import uvicorn
 import sys
 import io
@@ -10,6 +11,9 @@ if sys.platform == 'win32':
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 
 if __name__ == "__main__":
+    # 端口跟前端 .env.local 的 NEXT_PUBLIC_API_PORT 保持一致
+    port = int(os.environ.get("BACKEND_PORT") or os.environ.get("NEXT_PUBLIC_API_PORT") or 8000)
+
     print("="*60)
     print("   启动编程冒险岛后端服务")
     print("="*60)
@@ -20,7 +24,7 @@ if __name__ == "__main__":
     uvicorn.run(
         "app.main:app",
         host="0.0.0.0",
-        port=8000,
+        port=port,
         reload=True,  # 开发模式自动重载
         log_level="info",
         ws_ping_interval=20,  # WebSocket ping间隔

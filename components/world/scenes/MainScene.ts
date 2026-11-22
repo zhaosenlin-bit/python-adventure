@@ -9,10 +9,14 @@ import { PET_CONFIGS, Pet, PetMood, PetStatus } from '@/types/pet';
 import { migratePetType } from '@/lib/pet/migration';
 import { buildWorldControlsText } from '@/lib/gameplayText';
 import { getDashProfile } from '@/lib/game/dashProfile';
+import { getPlayerVisualSize, OPEN_WORLD_PLAYER_VISUAL_HEIGHT } from '@/lib/game/playerHitbox';
 
 // 生产环境禁用调试日志
 const DEBUG = process.env.NODE_ENV === 'development';
 const debugLog = DEBUG ? console.log.bind(console) : () => {};
+
+// 开放世界基础技能：无需解锁，所有玩家默认可用
+const WORLD_BASE_SKILLS: readonly string[] = ['teleport'];
 
 // 站点类型定义
 interface Station {
@@ -34,7 +38,6 @@ export class MainScene extends Phaser.Scene {
     private skillsSummaryText!: Phaser.GameObjects.Text;
     private stations: Station[] = [];
     private stationSprites: Map<string, Phaser.GameObjects.Container> = new Map();
-    private shiftKey!: Phaser.Input.Keyboard.Key;
     private spaceKey!: Phaser.Input.Keyboard.Key;
     private canDoubleJump: boolean = false;
     private hasDoubleJumped: boolean = false;
@@ -73,7 +76,13 @@ export class MainScene extends Phaser.Scene {
         dash: Phaser.Input.Keyboard.Key;
         timeSlow: Phaser.Input.Keyboard.Key;
         shield: Phaser.Input.Keyboard.Key;
+        teleport: Phaser.Input.Keyboard.Key;
     };
+    // 🌀 瞬移回起点（O 键）
+    private teleportCooldown: number = 0;
+    private readonly TELEPORT_COOLDOWN_SECONDS = 5;
+    private readonly SPAWN_X = 100;
+    private spawnPoint: { x: number; y: number } = { x: 100, y: 0 };
     private timeSlowCooldown: number = 0;
     private timeSlowDuration: number = 0;
     private chemicalShieldCooldown: number = 0;
@@ -108,11 +117,13 @@ export class MainScene extends Phaser.Scene {
     init(data: any) {
         // 从游戏状态获取玩家技能
         const gameState = useGameStore.getState();
-        this.playerSkills = [...gameState.skills]; // 获取实际解锁的技能
+        // 基础技能（瞬移回起点）对所有玩家开放，无需解锁
+        this.playerSkills = [...new Set([...gameState.skills, ...WORLD_BASE_SKILLS])]; // 获取实际解锁的技能
         this.timeSlowCooldown = 0;
         this.timeSlowDuration = 0;
         this.chemicalShieldCooldown = 0;
         this.chemicalShieldDuration = 0;
+        this.teleportCooldown = 0;
         this.skillAura = null;
         this.worldTimeScaleApplied = false;
         this.lastStationInteraction = { id: '', time: 0 };
@@ -138,6 +149,10 @@ export class MainScene extends Phaser.Scene {
 
     private hasChemicalShieldSkill() {
         return this.hasSkill('chemical_shield') || this.hasSkill('time_shield');
+    }
+
+    private hasTeleportSkill() {
+        return this.hasSkill('teleport');
     }
 
     private getDashSpeed() {
@@ -279,12 +294,14 @@ export class MainScene extends Phaser.Scene {
 
         // 创建玩家
         const groundY = this.WORLD_HEIGHT - 32;
-        this.player = this.physics.add.sprite(100, groundY - 100, 'player');
+        this.spawnPoint = { x: this.SPAWN_X, y: groundY - 100 };
+        this.player = this.physics.add.sprite(this.spawnPoint.x, this.spawnPoint.y, 'player');
         // 玩家立绘原始尺寸 657x983（0.668 长度比）：以高度 48px 为基准保留比例
         // （与原来 32x48 程序化版本的可视高度一致）。
-        const __pNaturalW = 657, __pNaturalH = 983;
-        const __pDisplayH = 48;
-        const __pDisplayW = __pDisplayH * (__pNaturalW / __pNaturalH);
+        const { width: __pDisplayW, height: __pDisplayH } = getPlayerVisualSize(
+            1,
+            OPEN_WORLD_PLAYER_VISUAL_HEIGHT,
+        );
         this.player.setDisplaySize(__pDisplayW, __pDisplayH);
         this.player.setBounce(0.1);
         this.player.setCollideWorldBounds(true);
@@ -307,7 +324,6 @@ export class MainScene extends Phaser.Scene {
         // 输入控制
         if (this.input.keyboard) {
             this.cursors = this.input.keyboard.createCursorKeys();
-            this.shiftKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SHIFT);
             this.spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
             this.eKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.E);
             this.moveKeys = this.input.keyboard.addKeys({
@@ -319,6 +335,7 @@ export class MainScene extends Phaser.Scene {
                 dash: Phaser.Input.Keyboard.KeyCodes.H,
                 timeSlow: Phaser.Input.Keyboard.KeyCodes.J,
                 shield: Phaser.Input.Keyboard.KeyCodes.K,
+                teleport: Phaser.Input.Keyboard.KeyCodes.O,
             }) as typeof this.moveKeys;
 
             this.phaserKeyHandler = (event: KeyboardEvent) => {
@@ -334,6 +351,10 @@ export class MainScene extends Phaser.Scene {
             };
 
             this.input.keyboard.on('keydown', this.phaserKeyHandler, this);
+            // O 键瞬移：用键盘事件触发，而不是 JustDown。
+            // JustDown 依赖「按键按下」和「按键松开」落在不同帧，
+            // 帧率低或快速点击时同帧按下又松开会让这一帧的触发被吃掉。
+            this.input.keyboard.on('keydown-O', this.onTeleportKeyDown, this);
         } else {
             console.error('[MainScene] Keyboard NOT available!');
         }
@@ -368,6 +389,10 @@ export class MainScene extends Phaser.Scene {
                 if (this.input.keyboard && this.phaserKeyHandler) {
                     this.input.keyboard.off('keydown', this.phaserKeyHandler, this);
                     this.phaserKeyHandler = undefined;
+                }
+
+                if (this.input.keyboard) {
+                    this.input.keyboard.off('keydown-O', this.onTeleportKeyDown, this);
                 }
                 
                 // 🔒 清理所有注册的 window 事件监听器（防止内存泄漏）
@@ -540,6 +565,7 @@ export class MainScene extends Phaser.Scene {
                             dash: Phaser.Input.Keyboard.KeyCodes.H,
                             timeSlow: Phaser.Input.Keyboard.KeyCodes.J,
                             shield: Phaser.Input.Keyboard.KeyCodes.K,
+                            teleport: Phaser.Input.Keyboard.KeyCodes.O,
                         }) as typeof this.moveKeys;
                         debugLog('[MainScene] Phaser keyboard input enabled and gameplay keys recreated');
                     }
@@ -852,7 +878,8 @@ export class MainScene extends Phaser.Scene {
             'quantum_dash': '量子冲刺',
             'time_slow': '时间减速',
             'chemical_shield': '化学护盾',
-            'door_unlocked': '密码门通行证'
+            'door_unlocked': '密码门通行证',
+            'teleport': '瞬移回起点'
         };
         return names[skillId] || skillId;
     }
@@ -868,6 +895,7 @@ export class MainScene extends Phaser.Scene {
             isTimeSlowActive: this.timeSlowDuration > 0,
             hasShield: this.hasChemicalShieldSkill(),
             isShieldActive: this.chemicalShieldDuration > 0,
+            hasTeleport: this.hasTeleportSkill(),
         });
     }
     
@@ -974,6 +1002,7 @@ export class MainScene extends Phaser.Scene {
 
         if (this.timeSlowCooldown > 0) this.timeSlowCooldown -= deltaTime;
         if (this.chemicalShieldCooldown > 0) this.chemicalShieldCooldown -= deltaTime;
+        if (this.teleportCooldown > 0) this.teleportCooldown -= deltaTime;
         if (this.timeSlowDuration > 0) {
             this.timeSlowDuration -= deltaTime;
             if (this.timeSlowDuration <= 0) {
@@ -1019,6 +1048,7 @@ export class MainScene extends Phaser.Scene {
         const inputLeft = this.cursors.left.isDown || this.moveKeys.left.isDown || touchState.left;
         const inputRight = this.cursors.right.isDown || this.moveKeys.right.isDown || touchState.right;
         const inputUp = this.cursors.up.isDown || this.moveKeys.up.isDown || touchState.up || touchState.jump;
+        const inputDown = this.cursors.down.isDown || this.moveKeys.down.isDown || touchState.down;
         
         // 检测触控跳跃刚按下
         const touchJumpJustPressed = (touchState.up && !this.lastTouchState.up) || 
@@ -1101,6 +1131,12 @@ export class MainScene extends Phaser.Scene {
         } else {
             this.isGliding = false;
         }
+
+        // 快速下落：空中按住 ↓/S 立刻结束滑翔并加速下坠（方向键下 / S 不再是空键）
+        if (inputDown && !onGround && body.velocity.y > 0) {
+            this.isGliding = false;
+            body.velocity.y = Math.min(body.velocity.y + 1500 * deltaTime, 900);
+        }
         
         // 更新触控状态追踪
         this.lastTouchState = { ...touchState };
@@ -1158,6 +1194,123 @@ export class MainScene extends Phaser.Scene {
                 onComplete: () => particle.destroy()
             });
         }
+    }
+
+    /**
+     * 尝试瞬移回开放世界起点（O 键）。
+     * 冷却期间给出提示，避免玩家误以为按键失灵。
+     */
+    private tryTeleportHome() {
+        if (this.teleportCooldown > 0) {
+            this.showFloatingText(
+                this.player.x,
+                this.player.y - 56,
+                `瞬移冷却中 ${this.teleportCooldown.toFixed(1)}s`,
+                '#fca5a5'
+            );
+            return;
+        }
+
+        this.teleportCooldown = this.TELEPORT_COOLDOWN_SECONDS;
+        this.performTeleportHome();
+    }
+
+    /** O 键按下：瞬移回开放世界起点 */
+    private onTeleportKeyDown() {
+        if (!this.keyboardEnabled) return;
+        if (this.isTextInputFocused()) return;
+        if (!this.hasTeleportSkill()) return;
+        this.tryTeleportHome();
+    }
+
+    private performTeleportHome() {
+        if (!this.player?.active) return;
+
+        const fromX = this.player.x;
+        const fromY = this.player.y;
+        const target = this.spawnPoint;
+
+        // 瞬移音效
+        const { isMuted } = useSoundStore.getState();
+        if (!isMuted && this.cache.audio.exists('jump')) {
+            try {
+                this.sound.play('jump', { volume: 0.45, rate: 1.5 });
+            } catch (e) {
+                // 音效播放失败，忽略
+            }
+        }
+
+        // 原位置消散 + 起点汇聚
+        this.createTeleportEffect(fromX, fromY, 0x67e8f9);
+        this.createTeleportEffect(target.x, target.y, 0x22d3ee);
+
+        // 重置移动状态，避免冲刺/滑翔惯性把玩家带偏
+        this.isDashing = false;
+        this.isGliding = false;
+        this.hasDoubleJumped = false;
+
+        const body = this.player.body as Phaser.Physics.Arcade.Body;
+        body.reset(target.x, target.y);
+        this.player.setVelocity(0, 0);
+        this.player.clearTint();
+
+        // 相机是跟随+缓动的，这里直接吸附到起点
+        this.cameras.main.centerOn(target.x, target.y);
+        this.cameras.main.flash(220, 34, 211, 238);
+
+        // 立刻把新位置同步给其他在线玩家
+        this.lastPositionSent = { x: target.x, y: target.y, time: 0 };
+
+        this.showFloatingText(target.x, target.y - 56, '✨ 瞬移回起点', '#67e8f9');
+    }
+
+    private createTeleportEffect(x: number, y: number, color: number) {
+        const ring = this.add.circle(x, y, 6, color, 0.35);
+        ring.setDepth(Math.max(0, this.player.depth - 2));
+        this.tweens.add({
+            targets: ring,
+            radius: 46,
+            alpha: 0,
+            duration: 420,
+            ease: 'Cubic.easeOut',
+            onComplete: () => ring.destroy()
+        });
+
+        for (let i = 0; i < 6; i++) {
+            const spark = this.add.circle(x, y, 3, color, 0.9);
+            spark.setDepth(Math.max(0, this.player.depth - 2));
+            const angle = Math.random() * Math.PI * 2;
+            const distance = 24 + Math.random() * 22;
+            this.tweens.add({
+                targets: spark,
+                x: x + Math.cos(angle) * distance,
+                y: y + Math.sin(angle) * distance,
+                alpha: 0,
+                duration: 380,
+                ease: 'Quad.easeOut',
+                onComplete: () => spark.destroy()
+            });
+        }
+    }
+
+    private showFloatingText(x: number, y: number, message: string, color: string) {
+        const text = this.add.text(x, y, message, {
+            fontSize: '16px',
+            fontFamily: MainScene.HUD_FONT_FAMILY,
+            color,
+            stroke: '#082f49',
+            strokeThickness: 4,
+            fontStyle: 'bold'
+        }).setOrigin(0.5).setDepth(1200);
+
+        this.tweens.add({
+            targets: text,
+            y: y - 26,
+            alpha: 0,
+            duration: 780,
+            ease: 'Quad.easeOut',
+            onComplete: () => text.destroy()
+        });
     }
 
     private performDash() {
@@ -1617,7 +1770,6 @@ export class MainScene extends Phaser.Scene {
             this.cursors.right.isDown = false;
             
             // 重置其他按键
-            if (this.shiftKey) this.shiftKey.isDown = false;
             if (this.spaceKey) this.spaceKey.isDown = false;
             if (this.eKey) this.eKey.isDown = false;
             if (this.moveKeys) {

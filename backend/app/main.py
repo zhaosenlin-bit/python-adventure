@@ -137,6 +137,34 @@ async def http_exception_handler(request: Request, exc: HTTPException):
     )
 
 
+def _localize_validation_message(message: str) -> str:
+    lowered = message.lower()
+    if "email" in lowered:
+        return "邮箱格式不正确，请填写完整邮箱（例如 name@example.com）"
+    if "field required" in lowered:
+        return "缺少必填参数"
+    return message
+
+
+# 参数名 -> 中文标签，方便用户知道到底要改哪个字段
+_VALIDATION_FIELD_LABELS: dict[str, str] = {
+    "username": "用户名",
+    "email": "邮箱",
+    "password": "密码",
+    "confirm_password": "确认密码",
+}
+
+
+def _validation_field_label(loc) -> str:
+    if not isinstance(loc, (list, tuple)):
+        return ""
+    for part in reversed(loc):
+        if not isinstance(part, str) or part in ("body", "query", "path"):
+            continue
+        return _VALIDATION_FIELD_LABELS.get(part, part)
+    return ""
+
+
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
     request_id = getattr(request.state, "request_id", str(uuid.uuid4()))
@@ -145,6 +173,10 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
         message = err.get("msg", "参数有误")
         if "Value error," in message:
             message = message.split("Value error,", 1)[-1].strip()
+        message = _localize_validation_message(message)
+        label = _validation_field_label(err.get("loc"))
+        if label and label not in message:
+            message = f"{message}（{label}）"
         friendly_errors.append(message)
 
     if not IS_PRODUCTION:
@@ -171,6 +203,7 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
         content={
             "success": False,
             "message": "服务器繁忙，请稍后再试",
+            "detail": "服务器繁忙，请稍后再试",
             "request_id": request_id,
         },
         headers={"X-Request-ID": request_id},

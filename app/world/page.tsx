@@ -1,13 +1,14 @@
 "use client";
 
 // 版本号 - 用于验证部署是否成功
-const BUILD_VERSION = "v20261003-collision-deploy-r2";
+const BUILD_VERSION = "v20261031-gravity-fallout-r1";
 const DEBUG = process.env.NODE_ENV === 'development';
 const debugLog = DEBUG ? console.log.bind(console) : () => {};
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import dynamicImport from 'next/dynamic';
 import { useRouter } from 'next/navigation';
+import { BACKEND_PORT } from '@/lib/config/api';
 
 const PhaserGame = dynamicImport(() => import('@/components/world/PhaserGame'), {
     ssr: false,
@@ -140,8 +141,8 @@ export default function WorldPage() {
         if (isProduction) {
             return `${protocol}//${host}`;
         }
-        // 开发环境直接访问后端端口
-        return `${protocol}//${host}:8000`;
+        // 开发环境直接访问后端端口（端口跟 .env.local 的 NEXT_PUBLIC_API_PORT 走）
+        return `${protocol}//${host}:${BACKEND_PORT}`;
     }, []);
 
     // 更新玩家位置到后端 - 使用 useCallback 避免重复创建

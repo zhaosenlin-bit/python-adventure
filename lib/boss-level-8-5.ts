@@ -167,7 +167,7 @@ export const level_8_5_config: CampaignLevel = {
         laserCooldown: 5000,
         // 传送门攻击（在玩家附近生成传送门陷阱）
         portalAttack: true,
-        portalDamage: 25,
+        portalDamage: 15,
         portalCooldown: 8000,
         // 重力脉冲（短暂翻转玩家重力）
         gravityPulse: true,

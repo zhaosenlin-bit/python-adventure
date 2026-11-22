@@ -37,6 +37,27 @@ def get_db():
     return conn
 
 
+# 食物背包表结构。历史版本只有「查询背包」「购买」这几个接口会临时建表，
+# 「发放奖励」「添加食物」「消耗食物」没带建表，
+# 一旦老库缺这张表就会直接 500（Failed to grant reward）。
+FOOD_INVENTORY_TABLE_SQL = """
+CREATE TABLE IF NOT EXISTS food_inventory (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    food_id TEXT NOT NULL,
+    quantity INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    UNIQUE(user_id, food_id)
+)
+"""
+
+
+def ensure_food_inventory_table(cursor) -> None:
+    """确保食物背包表存在，老库缺表时也不会 500"""
+    cursor.execute(FOOD_INVENTORY_TABLE_SQL)
+
+
 # ==================== Pydantic 模型 ====================
 
 class AddFoodRequest(BaseModel):
@@ -79,17 +100,7 @@ async def get_food_inventory(current_user = Depends(get_current_user)):
         cursor = conn.cursor()
         
         # 确保表存在
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS food_inventory (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id INTEGER NOT NULL,
-                food_id TEXT NOT NULL,
-                quantity INTEGER NOT NULL DEFAULT 0,
-                created_at TEXT NOT NULL,
-                updated_at TEXT NOT NULL,
-                UNIQUE(user_id, food_id)
-            )
-        """)
+        ensure_food_inventory_table(cursor)
         conn.commit()
         
         # 查询用户的食物背包
@@ -318,6 +329,9 @@ async def add_food(
     cursor = conn.cursor()
     
     try:
+        ensure_food_inventory_table(cursor)
+        conn.commit()
+
         # 检查是否已存在
         cursor.execute("""
             SELECT quantity FROM food_inventory
@@ -389,6 +403,9 @@ async def consume_food(
     cursor = conn.cursor()
     
     try:
+        ensure_food_inventory_table(cursor)
+        conn.commit()
+
         # 检查是否有足够的食物
         cursor.execute("""
             SELECT quantity FROM food_inventory
@@ -451,6 +468,9 @@ async def grant_food_reward(
     cursor = conn.cursor()
     
     try:
+        ensure_food_inventory_table(cursor)
+        conn.commit()
+
         granted_items = []
         
         # 发放每种食物

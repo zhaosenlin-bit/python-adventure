@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 import { Lock, Mail, User } from 'lucide-react';
 
 import { useAuthStore } from '@/store/authStore';
+import BackendStartHint from './BackendStartHint';
 
 interface RegisterFormProps {
   onSwitchToLogin: () => void;
@@ -16,12 +17,17 @@ export default function RegisterForm({ onSwitchToLogin }: RegisterFormProps) {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [localError, setLocalError] = useState('');
-  const { register, isLoading, error, clearError } = useAuthStore();
+  const { register, isLoading, error, errorKind, clearError } = useAuthStore();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     clearError();
     setLocalError('');
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      setLocalError('邮箱格式不正确，请填写完整邮箱（例如 name@example.com）。');
+      return;
+    }
 
     if (password !== confirmPassword) {
       setLocalError('两次输入的密码不一致。');
@@ -65,6 +71,12 @@ export default function RegisterForm({ onSwitchToLogin }: RegisterFormProps) {
           >
             {displayError}
           </motion.div>
+        )}
+
+        {!localError && errorKind === 'network' && (
+          <div className="mb-3">
+            <BackendStartHint />
+          </div>
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">

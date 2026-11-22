@@ -110,15 +110,15 @@ export const SKILLS: Record<string, Skill> = {
   teleport: {
     id: 'teleport',
     name: 'Teleport',
-    nameCN: '传送',
-    description: 'Instantly teleport to cursor position',
-    descriptionCN: '瞬间移动到指定位置',
+    nameCN: '瞬移回起点',
+    description: 'Instantly teleport back to the world start point',
+    descriptionCN: '按 O 瞬间回到开放世界的起点',
     icon: '✨',
     unlockCampaign: 'campaign_6',
     type: 'movement',
-    cooldown: 3000,
-    energyCost: 40,
-    keyBinding: 'E',
+    cooldown: 5000,
+    energyCost: 0,
+    keyBinding: 'O',
   },
 
   clone: {

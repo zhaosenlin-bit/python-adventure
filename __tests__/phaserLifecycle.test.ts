@@ -53,4 +53,19 @@ describe('destroyPhaserGameSafely', () => {
     expect(warnSpy).toHaveBeenCalledTimes(2);
     warnSpy.mockRestore();
   });
+
+  it('falls back to the canvas parent when React already detached the ref', () => {
+    const parent = createContainer();
+    const child = { parentNode: parent };
+    parent.childNodes.push(child);
+    const game = {
+      destroy: jest.fn(),
+      canvas: { parentElement: parent } as unknown as HTMLCanvasElement,
+    };
+
+    destroyPhaserGameSafely(game, null);
+
+    expect(game.destroy).toHaveBeenCalledWith(false);
+    expect(parent.childNodes).toEqual([]);
+  });
 });

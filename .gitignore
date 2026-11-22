@@ -48,6 +48,8 @@ frontend-qa.err.log
 .tmp-system-update-qa/
 backend/backend-dev.log
 backend/backend-dev.log.*
+backend/.dev-backend-state.json
+backend/.dev-backend-start.lock
 backend/*.log
 backend/*.db.bak
 backend/.tmp-*.log
@@ -115,6 +117,7 @@ backend/*.pyc
 
 # Deployment packages
 *.zip
+!public/pyodide/python_stdlib.zip
 /deploy/frontend-dist/
 /deploy/backend-dist/
 release/server-update-*/
@@ -125,6 +128,8 @@ qa-level-*.png
 tmp-br-debug.png
 tmp-br-guest-before-fill.png
 tmp-br-host-before-fill.png
+/qa-tomb/
+/qa-world/
 .gstack/
 
 # Local raw asset sources
@@ -133,3 +138,9 @@ tmp-br-host-before-fill.png
 
 # AI image generation response metadata may contain temporary signed URLs.
 art/**/*.json
+dev-server.log
+dev-server.err.log
+backend-run.log
+backend-run.err.log
+next-dev.log
+next-dev.err.log

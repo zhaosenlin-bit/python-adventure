@@ -348,6 +348,8 @@ export const campaign8: Campaign = {
         startPosition: { x: 100, y: 750 },
         width: 7000,
         height: 900,
+        // 🔥 第3关重力降低：整关重力乘以 0.7，反重力翻转也更柔和，减少飞出地图
+        gravityScale: 0.7,
         
         platforms: [
           // ===== 第一区：学习反重力 =====
@@ -996,7 +998,7 @@ export const campaign8: Campaign = {
             laserDuration: 3500,
             laserCooldown: 8000,  // 🔥 激光冷却从5秒增加到8秒
             portalAttack: true,
-            portalDamage: 25,
+            portalDamage: 15,
             portalCooldown: 8000,
             gravityPulse: true,
             gravityDuration: 2000,
