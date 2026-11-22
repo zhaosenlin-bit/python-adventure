@@ -32,6 +32,7 @@ const AI_RESEARCH_URL = "https://research.google/ai-quests/intl/en_us/quest/mark
 const ENGLISH_GAME_URL = "https://www.gamestolearnenglish.com/";
 const MICROSTUDIO_GAME_URL = "https://microstudio.dev/";
 const TYPING_URL = process.env.NEXT_PUBLIC_TYPING_URL || "/typing/index.html";
+const DINO_GAME_URL = "/dino/index.html";
 
 export default function Home() {
     const router = useRouter();
@@ -44,18 +45,31 @@ export default function Home() {
     const [showCoinHistory, setShowCoinHistory] = useState(false);
     const [showNewUserGuide, setShowNewUserGuide] = useState(false);
     const [showQuickLinksMenu, setShowQuickLinksMenu] = useState(false);
+    const [visibleQuickLinkCount, setVisibleQuickLinkCount] = useState(5);
+    const [showDinoGame, setShowDinoGame] = useState(false);
     const [mounted, setMounted] = useState(false);
     const [isValidating, setIsValidating] = useState(true); // 🔒 Token验证状态
+    const [loginGate, setLoginGate] = useState(true); // 🔒 一打开网站先进入登录界面，登录成功后才进入首页
     const { level: userLevel, xp } = useGameStore();
     const { balance: coins, loadBalance } = useCoinStore(); // 使用统一的coinStore
     const { isMuted, toggleMute } = useSoundStore();
     const { language, setLanguage, t } = useI18n();
     const musicInitialized = useRef(false);
     const quickLinksMenuRef = useRef<HTMLDivElement | null>(null);
+    const topBarRef = useRef<HTMLDivElement | null>(null);
+    const topBarLeftRef = useRef<HTMLDivElement | null>(null);
+    const fixedActionsRef = useRef<HTMLDivElement | null>(null);
+    const quickLinksMeasureRef = useRef<HTMLDivElement | null>(null);
+    const overflowMeasureRef = useRef<HTMLButtonElement | null>(null);
     const tokenValidated = useRef(false); // 🔒 防止重复验证
 
     useEffect(() => {
         setMounted(true);
+
+        // 🔒 登录成功（isAuthenticated 变为 true）后关闭登录门，进入首页
+        if (isAuthenticated) {
+            setLoginGate(false);
+        }
 
         // 🔒 页面加载时验证Token（只验证一次）
         if (!tokenValidated.current && isAuthenticated) {
@@ -151,18 +165,21 @@ export default function Home() {
         };
     }, [showQuickLinksMenu]);
 
-    // 🔒 验证中显示加载状态
-    if (!mounted || isValidating) {
-        return (
-            <div className="min-h-screen bg-gradient-to-b from-[#0a0e27] via-[#1a1e3e] to-[#0a0e27] flex items-center justify-center">
-                <div className="text-blue-400 font-pixel text-xl animate-pulse">加载中...</div>
-            </div>
-        );
-    }
+    // 恐龙大世界弹窗：Esc 关闭
+    useEffect(() => {
+        if (!showDinoGame) return;
 
-    if (!isAuthenticated) {
-        return <AuthModal />;
-    }
+        const handleEscape = (event: globalThis.KeyboardEvent) => {
+            if (event.key === 'Escape') {
+                setShowDinoGame(false);
+            }
+        };
+
+        document.addEventListener('keydown', handleEscape);
+        return () => {
+            document.removeEventListener('keydown', handleEscape);
+        };
+    }, [showDinoGame]);
 
     const selectedChapterMeta = getLearningChapter(selectedChapter);
 
@@ -253,6 +270,20 @@ export default function Home() {
         window.location.href = target.toString();
     };
 
+    // 🦖 恐龙大世界：在首页全屏弹窗中打开游戏（iframe 同源，支持鼠标锁定）
+    const handleOpenDinoGame = () => {
+        musicManager.stop();
+        setShowDinoGame(true);
+    };
+
+    const handleCloseDinoGame = () => {
+        setShowDinoGame(false);
+        const { isMuted } = useSoundStore.getState();
+        if (!isMuted) {
+            musicManager.play();
+        }
+    };
+
     const topQuickLinks = [
         {
             id: 'typing',
@@ -306,14 +337,103 @@ export default function Home() {
         },
     ] as const;
 
+    // 顶部入口按实际可用宽度自动收纳：放不下的入口进入“更多入口”
+    useEffect(() => {
+        const updateVisibleQuickLinks = () => {
+            const bar = topBarRef.current;
+            const left = topBarLeftRef.current;
+            const fixed = fixedActionsRef.current;
+            const measure = quickLinksMeasureRef.current;
+            if (!bar || !left || !fixed || !measure) return;
+
+            // 窄屏顶部栏改为纵向排列，入口统一收进菜单
+            if (!window.matchMedia('(min-width: 640px)').matches) {
+                setVisibleQuickLinkCount((current) => (current === 0 ? current : 0));
+                return;
+            }
+
+            const barStyle = window.getComputedStyle(bar);
+            const horizontalPadding =
+                (parseFloat(barStyle.paddingLeft) || 0) + (parseFloat(barStyle.paddingRight) || 0);
+            const contentWidth = bar.clientWidth - horizontalPadding;
+            const leftWidth = left.getBoundingClientRect().width;
+            const fixedWidth = fixed.getBoundingClientRect().width;
+            const outerGap = 12;
+            const linkGap = 8;
+            const availableForLinks = contentWidth - leftWidth - fixedWidth - outerGap;
+            const widths = Array.from(
+                measure.querySelectorAll<HTMLButtonElement>('[data-measure-link]')
+            ).map((node) => node.getBoundingClientRect().width);
+            if (!widths.length) return;
+
+            const allLinksWidth =
+                widths.reduce((sum, width) => sum + width, 0) + linkGap * (widths.length - 1);
+
+            if (availableForLinks >= allLinksWidth) {
+                setVisibleQuickLinkCount((current) => (current === widths.length ? current : widths.length));
+                return;
+            }
+
+            const overflowWidth = overflowMeasureRef.current?.getBoundingClientRect().width || 96;
+            const linksBudget = availableForLinks - overflowWidth - linkGap;
+            let usedWidth = 0;
+            let count = 0;
+            for (const width of widths) {
+                const nextWidth = usedWidth + (count > 0 ? linkGap : 0) + width;
+                if (nextWidth > linksBudget) break;
+                usedWidth = nextWidth;
+                count += 1;
+            }
+
+            const nextCount = Math.max(0, Math.min(widths.length - 1, count));
+            setVisibleQuickLinkCount((current) => (current === nextCount ? current : nextCount));
+        };
+
+        updateVisibleQuickLinks();
+        const resizeObserver = new ResizeObserver(updateVisibleQuickLinks);
+        [topBarRef.current, topBarLeftRef.current, fixedActionsRef.current].forEach((node) => {
+            if (node) resizeObserver.observe(node);
+        });
+        window.addEventListener('resize', updateVisibleQuickLinks);
+        let cancelled = false;
+        document.fonts?.ready.then(() => {
+            if (!cancelled) updateVisibleQuickLinks();
+        });
+
+        return () => {
+            cancelled = true;
+            resizeObserver.disconnect();
+            window.removeEventListener('resize', updateVisibleQuickLinks);
+        };
+    }, [language, isAuthenticated, userLevel, coins]);
+
+    useEffect(() => {
+        if (visibleQuickLinkCount >= topQuickLinks.length && showQuickLinksMenu) {
+            setShowQuickLinksMenu(false);
+        }
+    }, [visibleQuickLinkCount, showQuickLinksMenu, topQuickLinks.length]);
+
+    // 🔒 验证中显示加载状态
+    if (!mounted || isValidating) {
+        return (
+            <div className="min-h-screen bg-gradient-to-b from-[#0a0e27] via-[#1a1e3e] to-[#0a0e27] flex items-center justify-center">
+                <div className="text-blue-400 font-pixel text-xl animate-pulse">加载中...</div>
+            </div>
+        );
+    }
+
+    if (loginGate || !isAuthenticated) {
+        return <AuthModal />;
+    }
+
     return (
         <main className="min-h-screen bg-gradient-to-b from-[#0a0e27] via-[#1a1e3e] to-[#0a0e27] text-white">
             {/* 🔒 进度同步状态指示器 */}
             <SyncStatusIndicator />
             
             {/* Top Bar */}
-            <div className="relative z-30 flex flex-col sm:flex-row justify-between items-center p-2 sm:p-4 bg-[#0a0e27]/80 backdrop-blur-sm border-b border-blue-900/30 gap-2 sm:gap-0">
-                <div className="flex items-center gap-2 sm:gap-4 flex-wrap justify-center sm:justify-start">
+            <div ref={topBarRef} className="relative z-30 flex flex-col sm:flex-row justify-between items-center p-2 sm:p-4 bg-[#0a0e27]/80 backdrop-blur-sm border-b border-blue-900/30 gap-2 sm:gap-0">
+                <div ref={topBarLeftRef} className="flex items-center gap-2 sm:gap-4 flex-wrap justify-center sm:justify-start">
                     <div className="flex items-center gap-2 rounded-full border border-cyan-400/20 bg-slate-950/40 px-3 py-2 shadow-[0_8px_24px_rgba(4,18,38,0.35)]">
                         <div className="flex h-9 w-9 items-center justify-center rounded-full bg-white/5 ring-1 ring-white/10">
                             <Image
@@ -335,17 +455,40 @@ export default function Home() {
                     </div>
                     <div className="text-xs sm:text-sm text-slate-400 hidden sm:block">{t('app.welcome', { username: user?.username || '' })}</div>
                 </div>
+                {/* 入口宽度测量层：仅用于计算哪几个入口放得下，不参与界面呈现 */}
+                <div
+                    ref={quickLinksMeasureRef}
+                    aria-hidden="true"
+                    className="pointer-events-none invisible absolute left-4 top-0 flex w-max items-center gap-2 whitespace-nowrap"
+                >
+                    {topQuickLinks.map((link) => {
+                        const Icon = link.Icon;
+                        return (
+                            <button
+                                key={`measure-${link.id}`}
+                                type="button"
+                                tabIndex={-1}
+                                data-measure-link={link.id}
+                                className={`top-action-cta group inline-flex min-h-[44px] transform-gpu items-center gap-2 rounded-full border px-3 py-2 shadow-lg ${link.buttonClassName}`}
+                            >
+                                <Icon className={`h-4 w-4 ${link.iconClassName}`} />
+                                <span className="hidden text-sm font-medium xl:inline">{link.label}</span>
+                                <ExternalLink className="hidden h-3.5 w-3.5 xl:block" />
+                            </button>
+                        );
+                    })}
+                </div>
                 <div className="flex w-full flex-wrap items-center justify-end gap-2 sm:gap-3 lg:w-auto lg:flex-nowrap">
-                    <div ref={quickLinksMenuRef} className="relative">
-                        <div className="hidden items-center gap-2 lg:flex">
-                            {topQuickLinks.map((link) => {
+                    <div ref={quickLinksMenuRef} className="relative flex min-w-0 items-center gap-2">
+                        <div className="flex min-w-0 items-center gap-2 overflow-hidden">
+                            {topQuickLinks.slice(0, visibleQuickLinkCount).map((link) => {
                                 const Icon = link.Icon;
                                 return (
                                     <button
                                         key={link.id}
                                         data-testid={link.testId}
                                         onClick={link.onClick}
-                                        className={`top-action-cta group inline-flex min-h-[44px] transform-gpu items-center gap-2 rounded-full border px-3 py-2 shadow-lg transition-all duration-200 ease-out hover:-translate-y-0.5 hover:scale-[1.02] hover:text-slate-950 hover:shadow-xl hover:ring-2 active:translate-y-0 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 ${link.buttonClassName}`}
+                                        className={`top-action-cta group inline-flex min-h-[44px] shrink-0 transform-gpu items-center gap-2 rounded-full border px-3 py-2 shadow-lg transition-all duration-200 ease-out hover:-translate-y-0.5 hover:scale-[1.02] hover:text-slate-950 hover:shadow-xl hover:ring-2 active:translate-y-0 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 ${link.buttonClassName}`}
                                         title={link.title}
                                     >
                                         <Icon className={`h-4 w-4 transition-all duration-200 group-hover:scale-110 group-hover:text-slate-950 ${link.iconClassName}`} />
@@ -356,22 +499,36 @@ export default function Home() {
                             })}
                         </div>
                         <button
+                            ref={overflowMeasureRef}
                             type="button"
-                            data-testid="quick-links-toggle"
-                            onClick={() => setShowQuickLinksMenu((current) => !current)}
-                            className="top-action-cta inline-flex min-h-[44px] items-center gap-2 rounded-full border border-cyan-400/25 bg-slate-950/60 px-3 py-2 text-cyan-100 shadow-lg shadow-cyan-950/30 transition-colors hover:bg-slate-900/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/70 lg:hidden"
-                            aria-expanded={showQuickLinksMenu}
-                            aria-haspopup="menu"
-                            aria-label={'\u6253\u5f00\u5b66\u4e60\u5165\u53e3\u83dc\u5355'}
+                            tabIndex={-1}
+                            aria-hidden="true"
+                            className="pointer-events-none invisible absolute left-0 top-0 inline-flex min-h-[44px] items-center gap-2 rounded-full border border-cyan-400/25 bg-slate-950/60 px-3 py-2 text-cyan-100"
                         >
-                            {showQuickLinksMenu ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
-                            <span className="text-sm font-medium">{'\u5b66\u4e60\u5165\u53e3'}</span>
+                            <Menu className="h-4 w-4" />
+                            <span className="text-sm font-medium">{language === 'cn' ? '\u66f4\u591a\u5165\u53e3' : 'More'}</span>
                         </button>
-                        {showQuickLinksMenu && (
-                            <div className="absolute left-0 top-[calc(100%+0.6rem)] z-50 w-[min(18rem,calc(100vw-1.5rem))] rounded-2xl border border-cyan-400/20 bg-[#071427]/95 p-3 shadow-[0_24px_60px_rgba(2,12,27,0.6)] backdrop-blur-xl sm:left-auto sm:right-0 lg:hidden">
-                                <div className="mb-2 px-1 text-[11px] uppercase tracking-[0.2em] text-cyan-200/70">{'\u5b66\u4e60\u5165\u53e3'}</div>
+                        {visibleQuickLinkCount < topQuickLinks.length && (
+                            <button
+                                type="button"
+                                data-testid="quick-links-toggle"
+                                onClick={() => setShowQuickLinksMenu((current) => !current)}
+                                className="top-action-cta inline-flex min-h-[44px] shrink-0 items-center gap-2 rounded-full border border-cyan-400/25 bg-slate-950/60 px-3 py-2 text-cyan-100 shadow-lg shadow-cyan-950/30 transition-colors hover:bg-slate-900/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/70"
+                                aria-expanded={showQuickLinksMenu}
+                                aria-haspopup="menu"
+                                aria-label={language === 'cn' ? '\u5c55\u5f00\u5176\u4f59\u5b66\u4e60\u5165\u53e3' : 'Show more learning entries'}
+                            >
+                                {showQuickLinksMenu ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
+                                <span className="text-sm font-medium">{language === 'cn' ? '\u66f4\u591a\u5165\u53e3' : 'More'}</span>
+                            </button>
+                        )}
+                        {showQuickLinksMenu && visibleQuickLinkCount < topQuickLinks.length && (
+                            <div className="absolute right-0 top-[calc(100%+0.6rem)] z-50 w-[min(18rem,calc(100vw-1.5rem))] rounded-2xl border border-cyan-400/20 bg-[#071427]/95 p-3 shadow-[0_24px_60px_rgba(2,12,27,0.6)] backdrop-blur-xl">
+                                <div className="mb-2 px-1 text-[11px] uppercase tracking-[0.2em] text-cyan-200/70">
+                                    {language === 'cn' ? '\u66f4\u591a\u5b66\u4e60\u5165\u53e3' : 'MORE ENTRIES'}
+                                </div>
                                 <div className="flex flex-col gap-2">
-                                    {topQuickLinks.map((link) => {
+                                    {topQuickLinks.slice(visibleQuickLinkCount).map((link) => {
                                         const Icon = link.Icon;
                                         return (
                                             <button
@@ -399,6 +556,7 @@ export default function Home() {
                             </div>
                         )}
                     </div>
+                    <div ref={fixedActionsRef} className="flex shrink-0 items-center gap-1 sm:gap-2">
                     <div className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1 bg-blue-900/30 rounded">
                         <User className="w-4 h-4 text-blue-400" />
                         <span className="text-xs sm:text-sm">Lv.{userLevel}</span>
@@ -442,6 +600,7 @@ export default function Home() {
                     >
                         <LogOut className="w-5 h-5 text-red-400" />
                     </button>
+                    </div>
                 </div>
             </div>
 
@@ -464,6 +623,30 @@ export default function Home() {
                             </div>
                         </div>
                     </button>
+
+                    {/* 🦖 恐龙大世界 - 3D 开放世界探索游戏入口 */}
+                    <div className="relative mb-4 sm:mb-8 overflow-hidden rounded-2xl border border-emerald-400/25 bg-gradient-to-r from-[#0d1a10] via-[#10241a] to-[#0a0e27] p-5 sm:p-6 shadow-[0_18px_50px_rgba(8,15,30,0.4)]">
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                            <div className="flex items-center gap-4">
+                                <span className="flex h-12 w-12 items-center justify-center rounded-2xl border border-emerald-300/30 bg-emerald-400/10 text-emerald-200">
+                                    <Gamepad2 className="h-6 w-6" />
+                                </span>
+                                <div>
+                                    <h2 className="text-xl sm:text-2xl font-pixel text-emerald-200">恐龙大世界 · 黑爪偷猎队</h2>
+                                    <p className="text-xs sm:text-sm text-slate-300 mt-1">3D 开放世界：救回被偷猎队装箱的 12 枚恐龙蛋，找齐爷爷的 6 页追捕笔记，用麻醉枪把 6 名偷猎者赶出山谷——小心霸王龙。</p>
+                                </div>
+                            </div>
+                            <button
+                                type="button"
+                                data-testid="dino-game-entry-button"
+                                onClick={handleOpenDinoGame}
+                                className="inline-flex min-h-[44px] items-center gap-2 rounded-full border border-emerald-300/40 bg-emerald-400/15 px-5 py-2.5 text-emerald-100 shadow-lg shadow-emerald-900/20 transition-all duration-200 ease-out hover:-translate-y-0.5 hover:scale-[1.02] hover:bg-emerald-400/25 hover:text-white active:translate-y-0 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300/70"
+                            >
+                                <Gamepad2 className="h-4 w-4" />
+                                <span className="text-sm font-semibold">开始探索</span>
+                            </button>
+                        </div>
+                    </div>
 
                     {!selectedSubject ? (
                         <SubjectSelect
@@ -561,6 +744,34 @@ export default function Home() {
                     <DailyCheckIn />
                     <AchievementPanel />
                 </>
+            )}
+
+            {/* 🦖 恐龙大世界全屏弹窗 */}
+            {showDinoGame && (
+                <div className="fixed inset-0 z-[100] flex flex-col bg-[#0a0e27]">
+                    <div className="flex items-center justify-between gap-3 border-b border-emerald-400/20 bg-[#0a0e27]/95 px-4 py-2.5">
+                        <div className="flex items-center gap-2 text-sm text-emerald-100">
+                            <Gamepad2 className="h-4 w-4 text-emerald-300" />
+                            <span className="font-pixel">恐龙大世界 · 黑爪偷猎队</span>
+                            <span className="hidden sm:inline text-xs text-slate-400">WASD 移动 · 鼠标视角 · 左键麻醉枪 · Shift 冲刺 · 击败 6 名偷猎者</span>
+                        </div>
+                        <button
+                            type="button"
+                            data-testid="dino-game-close-button"
+                            onClick={handleCloseDinoGame}
+                            className="inline-flex min-h-[40px] items-center gap-2 rounded-full border border-white/15 bg-white/5 px-4 py-1.5 text-sm text-slate-200 transition-colors hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300/70"
+                        >
+                            <X className="h-4 w-4" />
+                            返回冒险岛
+                        </button>
+                    </div>
+                    <iframe
+                        src={DINO_GAME_URL + "?v=11"}
+                        title="恐龙大世界 · 黑爪偷猎队"
+                        allow="pointer-lock; fullscreen; autoplay"
+                        className="h-full w-full flex-1 border-0 bg-[#0D0E13]"
+                    />
+                </div>
             )}
 
             {/* 底部备案信息 */}

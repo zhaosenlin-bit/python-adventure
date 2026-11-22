@@ -133,3 +133,31 @@ tmp-br-host-before-fill.png
 
 # AI image generation response metadata may contain temporary signed URLs.
 art/**/*.json
+
+# Local development artifacts (Windows local setup)
+backend/.venv/
+backend/seed_local_user.py
+frontend.log
+frontend.err.log
+npm-install.log
+run_output.txt
+
+backend/seed_local_content.py
+
+seedtest*.txt
+
+# Local runtime logs and verification artifacts
+*.log
+_be_log.txt
+_dev_*.txt
+_shots/
+public/_shots/
+public/_backup/
+public/dino/_backup/
+/art/villains/
+tmp_*.js
+test_wanted_*.js
+_wanted_*.js
+/test_*.js
+start-local.bat
+打开冒险岛.bat

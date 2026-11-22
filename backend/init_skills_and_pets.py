@@ -7,7 +7,8 @@ import os
 sys.path.append(os.path.dirname(__file__))
 
 from app.core.database import SessionLocal, engine, Base
-from app.models.skill import Skill, Pet
+from app.models.skill import Skill
+from app.models.pet import Pet
 
 def init_skills():
     """初始化技能系统"""

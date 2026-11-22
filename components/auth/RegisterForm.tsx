@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Lock, Mail, User } from 'lucide-react';
+import { Lock, User } from 'lucide-react';
 
 import { useAuthStore } from '@/store/authStore';
 
@@ -12,7 +12,6 @@ interface RegisterFormProps {
 
 export default function RegisterForm({ onSwitchToLogin }: RegisterFormProps) {
   const [username, setUsername] = useState('');
-  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [localError, setLocalError] = useState('');
@@ -34,7 +33,7 @@ export default function RegisterForm({ onSwitchToLogin }: RegisterFormProps) {
     }
 
     try {
-      await register(username, email, password);
+      await register(username, password);
     } catch {
       // store handles request errors
     }
@@ -79,22 +78,6 @@ export default function RegisterForm({ onSwitchToLogin }: RegisterFormProps) {
               onChange={(e) => setUsername(e.target.value)}
               className="w-full rounded-lg border-2 border-slate-600 bg-slate-700 px-4 py-3 text-white transition-colors focus:border-blue-400 focus:outline-none"
               placeholder="输入用户名"
-              required
-              disabled={isLoading}
-            />
-          </div>
-
-          <div>
-            <label className="mb-2 block text-sm font-pixel text-blue-400">
-              <Mail className="mr-2 inline h-4 w-4" />
-              邮箱
-            </label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full rounded-lg border-2 border-slate-600 bg-slate-700 px-4 py-3 text-white transition-colors focus:border-blue-400 focus:outline-none"
-              placeholder="输入邮箱"
               required
               disabled={isLoading}
             />

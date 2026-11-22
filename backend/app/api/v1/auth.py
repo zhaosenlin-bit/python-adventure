@@ -1,4 +1,6 @@
+import hashlib
 import logging
+import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
@@ -33,17 +35,24 @@ async def register(user_data: UserRegister, db: Session = Depends(get_db)):
             detail="用户名已被注册"
         )
     
-    # 检查邮箱是否已存在
-    if db.query(User).filter(User.email == user_data.email).first():
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="邮箱已被注册"
-        )
+    # 邮箱可选：未填写时生成唯一占位邮箱（数据库字段仍为非空且唯一）
+    email = user_data.email
+    if email:
+        if db.query(User).filter(User.email == email).first():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="邮箱已被注册"
+            )
+    else:
+        digest = hashlib.sha1(user_data.username.encode("utf-8")).hexdigest()[:16]
+        email = f"user_{digest}@adventure.local"
+        if db.query(User).filter(User.email == email).first():
+            email = f"user_{uuid.uuid4().hex[:16]}@adventure.local"
     
     # 创建新用户
     new_user = User(
         username=user_data.username,
-        email=user_data.email,
+        email=email,
         password_hash=get_password_hash(user_data.password)
     )
     

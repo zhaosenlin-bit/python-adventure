@@ -65,7 +65,7 @@ interface AuthState {
 
     // Actions
     login: (username: string, password: string) => Promise<void>;
-    register: (username: string, email: string, password: string) => Promise<void>;
+    register: (username: string, password: string) => Promise<void>;
     logout: () => void;
     loadUserProfile: () => Promise<void>;
     clearError: () => void;
@@ -196,8 +196,8 @@ export const useAuthStore = create<AuthState>()(
                 }
             },
 
-            register: async (username: string, email: string, password: string) => {
-                debugLog('[AuthStore] Starting registration...', { username, email });
+            register: async (username: string, password: string) => {
+                debugLog('[AuthStore] Starting registration...', { username });
                 set({ isLoading: true, error: null });
                 try {
                     const url = `${getApiUrl()}/auth/register`;
@@ -210,7 +210,6 @@ export const useAuthStore = create<AuthState>()(
                         },
                         body: JSON.stringify({
                             username,
-                            email,
                             password,
                         }),
                     });

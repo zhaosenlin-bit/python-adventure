@@ -53,4 +53,22 @@ describe('destroyPhaserGameSafely', () => {
     expect(warnSpy).toHaveBeenCalledTimes(2);
     warnSpy.mockRestore();
   });
+
+  it('removes the Phaser canvas even when the parent element is unavailable', () => {
+    const canvas = {
+      parentNode: {
+        removeChild: (child: unknown) => {
+          (child as { parentNode: unknown }).parentNode = null;
+          return child;
+        },
+      },
+    };
+    const game = { destroy: jest.fn(), canvas };
+
+    // React StrictMode 双挂载时父容器引用会先被解绑，此时只能按引用移除画布
+    destroyPhaserGameSafely(game as never, null);
+
+    expect(game.destroy).toHaveBeenCalledWith(false);
+    expect(canvas.parentNode).toBeNull();
+  });
 });
