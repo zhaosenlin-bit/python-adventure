@@ -1,0 +1,2229 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<title>通缉令 · 夜幕追凶</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23dc2626'/%3E%3Ctext x='16' y='22' font-size='17' text-anchor='middle' fill='%23fff'%3E%E9%80%9A%3C/text%3E%3C/svg%3E">
+<style>
+:root{
+  --ink:#e8f1ff; --ink2:#a9c2e0; --muted:#5d7796;
+  --red:#ff3b5c; --red2:#ff7a92; --gold:#ffcf5c; --cyan:#5ef0ff; --green:#4dff9d;
+  --panel:rgba(8,15,28,.92); --line:rgba(94,240,255,.28);
+  --font:"Microsoft YaHei UI","Microsoft YaHei","PingFang SC","Noto Sans CJK SC","Segoe UI",system-ui,sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;overflow:hidden;background:#04070e;color:var(--ink);font-family:var(--font);user-select:none}
+button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
+#app{position:fixed;inset:0;overflow:hidden}
+canvas{position:absolute;inset:0;display:block;width:100%;height:100%}
+.hidden{display:none!important}
+
+/* ============ 顶部 HUD ============ */
+.hud{position:absolute;top:0;left:0;right:0;z-index:12;display:flex;align-items:flex-start;gap:10px;padding:9px 12px 18px;pointer-events:none;
+  background:linear-gradient(180deg,rgba(3,7,14,.86) 0%,rgba(3,7,14,.5) 55%,transparent 100%);flex-wrap:wrap}
+.hud-left{display:flex;align-items:center;gap:8px;min-width:0;flex:1 1 210px}
+.hud-ava{width:44px;height:44px;border-radius:10px;border:2px solid rgba(255,59,92,.75);background:#1a0b12;overflow:hidden;flex:none;box-shadow:0 4px 14px rgba(0,0,0,.5)}
+.hud-ava img{width:100%;height:100%;object-fit:cover;object-position:center 18%}
+.hud-id{min-width:0}
+.hud-name{font-size:14px;font-weight:800;letter-spacing:.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:1px 1px 0 #000}
+.hud-meta{font-size:11px;color:var(--ink2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hud-meta b{color:var(--red2)}
+.hud-mid{flex:1 1 200px;min-width:130px;padding-top:2px}
+.hud-dist-row{display:flex;justify-content:space-between;align-items:baseline;font-size:11px;color:var(--ink2)}
+.hud-dist-row b{font-size:15px;color:var(--gold);font-variant-numeric:tabular-nums;text-shadow:1px 1px 0 #000}
+.hud-bar{height:9px;margin-top:4px;border-radius:6px;background:rgba(255,255,255,.09);border:1px solid rgba(94,240,255,.18);overflow:hidden;position:relative}
+.hud-bar i{display:block;height:100%;width:0%;border-radius:6px;background:linear-gradient(90deg,var(--cyan),var(--gold),var(--red));transition:width .3s ease}
+.hud-right{display:flex;align-items:center;gap:8px;flex:0 0 auto}
+.hearts{display:flex;gap:2px;font-size:15px;line-height:1;letter-spacing:0}
+.hearts span{color:#ff5d78;text-shadow:0 0 8px rgba(255,59,92,.7)}
+.hearts span.off{color:rgba(255,255,255,.18);text-shadow:none}
+.hud-box{display:flex;flex-direction:column;align-items:flex-end;background:rgba(9,17,30,.7);border:1px solid rgba(255,207,92,.3);border-radius:8px;padding:2px 8px;font-size:11px;color:var(--muted);line-height:1.3}
+.hud-box b{font-size:14px;color:var(--gold);font-variant-numeric:tabular-nums}
+.hud-combo{font-size:12px;font-weight:800;color:var(--cyan);text-shadow:0 0 10px rgba(94,240,255,.7);min-width:52px;text-align:right;opacity:.35;transition:opacity .2s}
+.hud-combo.on{opacity:1}
+.btn-ico{pointer-events:auto;width:34px;height:34px;border-radius:9px;border:1px solid rgba(94,240,255,.25);background:rgba(9,17,30,.72);color:var(--ink2);font-size:13px;font-weight:800;display:flex;align-items:center;justify-content:center}
+.btn-ico:active{transform:translateY(1px)}
+.hud-intel{display:flex;align-items:center;gap:6px;margin-top:5px;font-size:10.5px;color:var(--ink2)}
+.hud-intel b{color:var(--cyan);font-size:12px;font-variant-numeric:tabular-nums}
+.hud-pips{display:flex;gap:3px}
+.hud-pips i{width:14px;height:5px;border-radius:2px;background:rgba(94,240,255,.12);border:1px solid rgba(94,240,255,.22);transition:background .15s,box-shadow .15s}
+.hud-pips i.on{background:var(--cyan);box-shadow:0 0 8px rgba(94,240,255,.7)}
+.hud-dash{display:flex;align-items:center;gap:6px;margin-top:4px;font-size:10px;color:var(--muted)}
+.hud-dash-bar{flex:0 0 120px;width:120px;height:3px;border-radius:2px;background:rgba(255,255,255,.08);overflow:hidden}
+.hud-dash-bar i{display:block;height:100%;width:100%;background:linear-gradient(90deg,#5ef0ff,#ffcf5c);transform-origin:left;transition:transform .1s linear}
+
+/* ============ 对决 BOSS 条 ============ */
+.bossbar{position:absolute;top:92px;left:50%;transform:translateX(-50%);z-index:15;width:min(520px,calc(100% - 24px));text-align:center;pointer-events:none}
+.bossbar.hidden{display:none}
+.boss-name{font-size:12px;font-weight:800;letter-spacing:1px;color:#ffd6de;text-shadow:0 1px 0 #000}
+.boss-name b{color:#fff}
+.boss-armor{display:flex;justify-content:center;gap:7px;margin-top:5px}
+.boss-armor i{display:block;width:min(92px,24vw);height:7px;border-radius:4px;background:rgba(255,59,92,.12);border:1px solid rgba(255,59,92,.38);transition:background .15s,box-shadow .15s}
+.boss-armor i.on{background:linear-gradient(90deg,#ff3b5c,#ffcf5c);box-shadow:0 0 10px rgba(255,59,92,.55)}
+.boss-state{margin-top:5px;font-size:11px;font-weight:800;letter-spacing:1px;color:var(--muted)}
+.boss-state.open{color:var(--gold);text-shadow:0 0 10px rgba(255,207,92,.55)}
+
+/* ============ 提示条 ============ */
+.banner{position:absolute;left:50%;top:86px;transform:translate(-50%,-8px);z-index:14;padding:7px 16px;border-radius:999px;font-size:13px;font-weight:700;letter-spacing:.5px;
+  background:rgba(6,14,26,.9);border:1px solid rgba(94,240,255,.35);color:var(--cyan);opacity:0;transition:opacity .2s,transform .2s;pointer-events:none;white-space:nowrap;max-width:calc(100% - 24px);overflow:hidden;text-overflow:ellipsis}
+.banner.show{opacity:1;transform:translate(-50%,0)}
+.banner.ok{color:var(--green);border-color:rgba(77,255,157,.45);box-shadow:0 0 18px rgba(77,255,157,.15)}
+.banner.bad{color:var(--red2);border-color:rgba(255,59,92,.5);box-shadow:0 0 18px rgba(255,59,92,.18)}
+.banner.warn{color:var(--gold);border-color:rgba(255,207,92,.5)}
+
+/* ============ 答题卡 ============ */
+.quiz{position:absolute;left:50%;bottom:10px;transform:translateX(-50%);z-index:20;width:min(820px,calc(100% - 20px));
+  background:linear-gradient(180deg,rgba(10,19,34,.96),rgba(6,12,22,.97));border:1.5px solid rgba(94,240,255,.4);border-radius:16px;
+  padding:9px 12px 11px;box-shadow:0 14px 40px rgba(0,0,0,.6),inset 0 1px 0 rgba(255,255,255,.06);backdrop-filter:blur(6px);animation:qin .22s ease}
+@keyframes qin{from{opacity:0;transform:translate(-50%,14px)}to{opacity:1;transform:translate(-50%,0)}}
+.qtop{display:flex;justify-content:space-between;align-items:center;font-size:11px;color:var(--muted);margin-bottom:3px}
+.qtop .tag{color:var(--cyan);font-weight:800;letter-spacing:1px}
+.qtop .timer{font-size:13px;font-weight:800;color:var(--gold);font-variant-numeric:tabular-nums}
+.qtop .timer.warn{color:var(--red2);animation:pulse .6s infinite}
+@keyframes pulse{50%{opacity:.45}}
+.qtext{font-size:15px;font-weight:800;line-height:1.35;margin-bottom:8px;color:#f2f8ff;text-shadow:0 1px 0 #000}
+.qopts{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.qopt{display:flex;align-items:center;gap:7px;min-height:38px;padding:6px 9px;border-radius:9px;border:1.5px solid rgba(120,150,190,.35);
+  background:rgba(22,36,58,.85);color:#d8e6f7;font-size:13.5px;font-weight:700;text-align:left;transition:transform .08s,border-color .12s,background .12s}
+.qopt .k{flex:none;width:19px;height:19px;display:flex;align-items:center;justify-content:center;border-radius:50%;background:#0c1728;border:1px solid rgba(120,150,190,.4);font-size:11px;color:#93a9c4}
+.qopt:hover{border-color:rgba(94,240,255,.65);background:rgba(28,48,74,.95)}
+.qopt:active{transform:scale(.985)}
+.qopt.ok{border-color:var(--green);background:rgba(20,58,44,.95);color:#d8ffe8}
+.qopt.ok .k{background:var(--green);color:#04120a;border-color:var(--green)}
+.qopt.bad{border-color:var(--red);background:rgba(60,16,28,.95);color:#ffd6de}
+.qopt.bad .k{background:var(--red);color:#fff;border-color:var(--red)}
+.qopt:disabled{cursor:default;opacity:.92}
+.qbar{height:4px;border-radius:3px;background:rgba(255,255,255,.1);overflow:hidden;margin-top:8px}
+.qbar i{display:block;height:100%;width:100%;background:linear-gradient(90deg,var(--cyan),var(--gold));transform-origin:left}
+.qhint{font-size:10.5px;color:var(--muted);margin-top:4px;text-align:right}
+@media (max-width:520px){
+  .hud{padding:8px 9px 12px;gap:6px}
+  .hud-left{flex:1 1 140px}
+  .hud-mid{order:3;flex:1 1 100%;padding-top:2px}
+  .hud-dash{display:none}
+  .banner{top:124px;font-size:12px;padding:6px 12px;max-width:calc(100% - 16px)}
+  .bossbar{top:118px}
+  .qtext{font-size:13.5px}.qopt{font-size:12px;min-height:34px}
+  .qhint{font-size:9.5px}
+  .title-card{padding:20px 14px 18px}
+}
+
+/* ============ 屏幕层 ============ */
+.screen{position:absolute;inset:0;z-index:40;display:flex;align-items:center;justify-content:center;padding:14px;overflow:auto;
+  background:radial-gradient(circle at 50% 30%,rgba(18,34,58,.72),rgba(2,5,10,.94) 72%)}
+.card{width:min(560px,100%);border-radius:18px;border:1px solid rgba(94,240,255,.22);background:linear-gradient(180deg,rgba(10,18,32,.96),rgba(4,9,17,.97));
+  box-shadow:0 30px 80px rgba(0,0,0,.7),inset 0 1px 0 rgba(255,255,255,.05);overflow:hidden;position:relative}
+.card::before{content:"";position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(45deg,transparent 0 22px,rgba(94,240,255,.035) 22px 24px)}
+
+/* 标题 */
+.title-card{padding:26px 22px 22px;text-align:center}
+.wanted{font-size:clamp(38px,9vw,62px);font-weight:900;letter-spacing:clamp(4px,1.6vw,12px);line-height:1;
+  color:#ff4664;text-shadow:0 0 24px rgba(255,59,92,.55),0 4px 0 #560713;transform:rotate(-2deg);font-style:italic}
+.title-sub{font-size:clamp(17px,4.2vw,24px);font-weight:900;letter-spacing:4px;margin-top:8px;color:#eaf6ff}
+.title-line{font-size:12.5px;color:var(--ink2);margin-top:8px;line-height:1.7}
+.title-line b{color:var(--gold)}
+.title-tags{display:flex;gap:7px;justify-content:center;flex-wrap:wrap;margin-top:14px}
+.tagchip{font-size:11px;padding:3px 9px;border-radius:999px;border:1px solid rgba(94,240,255,.25);color:#bcd6ee;background:rgba(12,24,42,.7)}
+.tagchip.red{color:#ffb3c0;border-color:rgba(255,59,92,.4);background:rgba(48,8,16,.6)}
+.best{margin-top:16px;font-size:12px;color:var(--muted)}
+.best b{color:var(--gold);font-size:15px}
+.btn-main{display:block;width:100%;margin-top:14px;padding:13px;border-radius:12px;font-size:16px;font-weight:900;letter-spacing:3px;color:#fff;
+  background:linear-gradient(180deg,#ff4664,#c8102e);box-shadow:0 8px 26px rgba(255,59,92,.35),inset 0 1px 0 rgba(255,255,255,.4);border:1px solid rgba(255,255,255,.18)}
+.btn-main:active{transform:translateY(2px);box-shadow:0 3px 12px rgba(255,59,92,.3)}
+.btn-main.cyan{background:linear-gradient(180deg,#38d6ff,#0b7ea8);box-shadow:0 8px 26px rgba(56,214,255,.28)}
+.btn-line{display:block;width:100%;margin-top:8px;padding:10px;border-radius:11px;font-size:13px;font-weight:700;color:#a9c2e0;
+  background:rgba(16,28,46,.8);border:1px solid rgba(120,150,190,.3)}
+.btn-line:active{transform:translateY(1px)}
+.howto{margin-top:16px;text-align:left;display:flex;flex-direction:column;gap:7px}
+.howto div{display:flex;gap:8px;font-size:12px;color:#b9cde3;line-height:1.5}
+.howto span.n{flex:none;width:18px;height:18px;border-radius:50%;background:rgba(94,240,255,.15);border:1px solid rgba(94,240,255,.35);color:var(--cyan);font-size:11px;display:flex;align-items:center;justify-content:center;font-weight:800}
+
+/* 通缉海报 */
+.poster-wrap{width:min(460px,100%);padding:0}
+.poster-top{background:linear-gradient(90deg,#3d0812,#7a0d1f 50%,#3d0812);text-align:center;padding:8px 12px;border-bottom:2px solid rgba(255,59,92,.5)}
+.poster-top b{font-size:clamp(24px,6vw,34px);letter-spacing:clamp(5px,2vw,10px);color:#fff;font-weight:900;font-style:italic;text-shadow:0 2px 0 #4a0510}
+.poster-top span{display:block;font-size:10px;letter-spacing:4px;color:#ffc5ce;margin-top:-2px}
+.poster-body{display:flex;gap:14px;padding:14px;align-items:center}
+.poster-pic{width:132px;flex:none;aspect-ratio:1/1;border-radius:12px;overflow:hidden;border:2px solid rgba(255,59,92,.55);background:#170a10;box-shadow:0 8px 26px rgba(0,0,0,.55)}
+.poster-pic img{width:100%;height:100%;object-fit:cover}
+.poster-info{flex:1;min-width:0}
+.poster-name{font-size:clamp(20px,5vw,26px);font-weight:900;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.poster-tag{font-size:11.5px;color:var(--red2);margin-top:4px}
+.poster-lv{display:inline-block;margin-top:8px;font-size:11px;font-weight:800;padding:2px 9px;border-radius:999px;background:rgba(255,59,92,.16);border:1px solid rgba(255,59,92,.45);color:#ffb9c5}
+.poster-money{margin-top:12px;font-size:11px;color:var(--muted)}
+.poster-money b{display:block;font-size:clamp(26px,7vw,34px);font-weight:900;color:var(--gold);text-shadow:0 2px 0 #000;line-height:1.15}
+.poster-money b small{font-size:12px;font-weight:600;color:#c6a35a}
+.poster-foot{padding:0 14px 14px}
+.poster-foot .btn-main{margin-top:4px}
+/* 逮捕印章 */
+.stamp{position:absolute;right:12px;top:12px;transform:rotate(-12deg);font-size:21px;font-weight:900;letter-spacing:3px;color:#4dff9d;
+  border:2.5px solid rgba(77,255,157,.85);border-radius:9px;padding:1px 9px;box-shadow:0 0 16px rgba(77,255,157,.30),inset 0 0 10px rgba(77,255,157,.12);opacity:.95;pointer-events:none}
+@media (max-width:430px){.poster-body{gap:10px;padding:11px}.poster-pic{width:104px}.stamp{top:8px;right:8px;font-size:15px;letter-spacing:2px}}
+
+/* 结算 */
+.res-head{padding:14px 16px 10px;border-bottom:1px solid rgba(94,240,255,.16);display:flex;align-items:center;gap:12px}
+.res-ava{width:58px;height:58px;border-radius:10px;overflow:hidden;border:2px solid rgba(77,255,157,.6);flex:none;background:#0c1a14}
+.res-ava img{width:100%;height:100%;object-fit:cover}
+.res-title{font-size:19px;font-weight:900;letter-spacing:1px}
+.res-title small{display:block;font-size:11px;color:var(--muted);font-weight:400;letter-spacing:0;margin-top:2px}
+.res-body{padding:12px 16px}
+.res-row{display:flex;justify-content:space-between;font-size:12.5px;color:var(--ink2);padding:5px 0;border-bottom:1px dashed rgba(120,150,190,.18)}
+.res-row b{color:#dbe9f8}
+.res-row.total{border-bottom:none;margin-top:6px;font-size:14px;color:var(--gold);font-weight:800}
+.res-row.total b{color:var(--gold);font-size:20px}
+.res-note{font-size:11px;color:var(--muted);margin-top:8px;line-height:1.6}
+.res-actions{padding:0 16px 16px}
+
+/* 失败/收工 */
+.over-card{text-align:center;padding:22px 18px}
+.over-ico{font-size:40px;line-height:1;color:var(--red2);text-shadow:0 0 20px rgba(255,59,92,.45)}
+.over-title{font-size:22px;font-weight:900;letter-spacing:2px;margin-top:6px}
+.over-sub{font-size:12px;color:var(--muted);margin-top:6px}
+.over-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:16px 0 4px}
+.over-stats .cell{background:rgba(14,26,44,.8);border:1px solid rgba(120,150,190,.25);border-radius:10px;padding:8px 4px}
+.over-stats .v{font-size:17px;font-weight:900;color:var(--gold);font-variant-numeric:tabular-nums}
+.over-stats .k{font-size:10.5px;color:var(--muted);margin-top:2px}
+
+/* 暂停 */
+.pause-card{width:min(340px,100%);text-align:center;padding:22px 18px}
+.pause-title{font-size:18px;font-weight:900;letter-spacing:3px}
+.pause-sub{font-size:11.5px;color:var(--muted);margin-top:6px}
+
+/* 调试 */
+#dbg{position:absolute;left:0;right:0;bottom:0;z-index:99;display:none;background:rgba(120,0,0,.92);color:#fff;font-size:11px;padding:8px;white-space:pre-wrap;max-height:40%;overflow:auto}
+</style>
+</head>
+<body>
+<div id="app">
+  <canvas id="game"></canvas>
+
+  <!-- ============ HUD ============ -->
+  <div class="hud hidden" id="hud">
+    <div class="hud-left">
+      <div class="hud-ava"><img id="hudAvatar" alt=""></div>
+      <div class="hud-id">
+        <div class="hud-name" id="hudName">--</div>
+        <div class="hud-meta" id="hudMeta">--</div>
+      </div>
+    </div>
+    <div class="hud-mid">
+      <div class="hud-dist-row"><span id="hudDistLabel">追缉距离</span><b id="hudDist">80m</b></div>
+      <div class="hud-bar"><i id="hudDistBar"></i></div>
+      <div class="hud-intel"><span>情报</span><b id="hudIntel">0 / 5</b><span class="hud-pips" id="hudPips"></span></div>
+      <div class="hud-dash"><span>冲刺</span><div class="hud-dash-bar"><i id="hudDashBar"></i></div></div>
+    </div>
+    <div class="hud-right">
+      <div class="hud-combo" id="hudCombo">连击 0</div>
+      <div class="hud-box"><span>赏金</span><b id="hudBounty">0</b></div>
+      <div class="hearts" id="hudHearts"></div>
+      <button class="btn-ico" id="btnPause" aria-label="暂停">II</button>
+    </div>
+  </div>
+
+  <!-- ============ 对决 BOSS 条 ============ -->
+  <div class="bossbar hidden" id="bossbar">
+    <div class="boss-name">目标 · <b id="bossName">--</b></div>
+    <div class="boss-armor" id="bossArmor"></div>
+    <div class="boss-state" id="bossState">护盾展开</div>
+  </div>
+
+  <div class="banner" id="banner"></div>
+
+  <!-- ============ 答题卡 ============ -->
+  <div class="quiz hidden" id="quizCard">
+    <div class="qtop">
+      <span class="tag" id="qTag">对质</span>
+      <span class="timer" id="qTimer">6.0s</span>
+    </div>
+    <div class="qtext" id="qText"></div>
+    <div class="qopts" id="qOpts"></div>
+    <div class="qbar"><i id="qBar"></i></div>
+    <div class="qhint" id="qHint">按 1–4 或 A–D 作答 · 空格跳跃</div>
+  </div>
+
+  <!-- ============ 标题 ============ -->
+  <div class="screen" id="titleScreen">
+    <div class="card title-card">
+      <div class="wanted">WANTED</div>
+      <div class="title-sub">夜幕追凶</div>
+      <div class="title-line">你是一名赏金猎人。通缉犯就在前面跑。<br><b>答题集齐 5 份情报，再拔枪击碎他的护盾。</b></div>
+      <div class="title-tags">
+        <span class="tagchip red">自动奔跑</span>
+        <span class="tagchip">二段跳躲障</span>
+        <span class="tagchip">答题集情报</span>
+        <span class="tagchip">枪战逮捕</span>
+      </div>
+      <div class="best">最高赏金纪录 <b id="bestBounty">0</b></div>
+      <button class="btn-main" id="btnStart">开 始 缉 拿</button>
+      <div class="howto">
+        <div><span class="n">1</span><span>追缉：自动奔跑，<b>点画面 / 空格 / ↑ 跳跃</b>（空中再点一次是二段跳）；<b>Shift 冲刺</b>撞开路障。</span></div>
+        <div><span class="n">2</span><span>答题：每到检查点时间定格，<b>答对收集 1 份情报并逼近 20 米</b>；答错被反甩，还掉 1 颗心。</span></div>
+        <div><span class="n">3</span><span>对决：集齐 5 份情报拔枪，趁<b>护盾过载</b>打爆红色弱点，击碎 3 层护盾完成逮捕。</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 通缉海报 ============ -->
+  <div class="screen hidden" id="posterScreen">
+    <div class="card poster-wrap">
+      <div class="poster-top"><b>WANTED</b><span>通 缉 令 · 赏 金 公 告</span></div>
+      <div class="poster-body">
+        <div class="poster-pic"><img id="posterImg" alt=""></div>
+        <div class="poster-info">
+          <div class="poster-name" id="posterName">--</div>
+          <div class="poster-tag" id="posterTag">--</div>
+          <div class="poster-lv" id="posterLv">危险等级 --</div>
+          <div class="poster-money">悬赏金额<b><span id="posterBounty">0</span><small> 金币</small></b></div>
+        </div>
+      </div>
+      <div class="poster-foot">
+        <button class="btn-main" id="btnPosterGo">立 即 追 缉</button>
+        <div class="qhint" id="posterHint" style="text-align:center;margin-top:6px">2 秒后自动开始…</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 逮捕结算 ============ -->
+  <div class="screen hidden" id="resultScreen">
+    <div class="card">
+      <div class="stamp">已 逮 捕</div>
+      <div class="res-head">
+        <div class="res-ava"><img id="resImg" alt=""></div>
+        <div class="res-title" id="resTitle">逮捕成功<small id="resSub">--</small></div>
+      </div>
+      <div class="res-body">
+        <div id="resRows"></div>
+        <div class="res-note" id="resNote"></div>
+      </div>
+      <div class="res-actions">
+        <button class="btn-main" id="btnNext">继 续 追 缉</button>
+        <button class="btn-line" id="btnStop">收工，结算本轮</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 失败 / 收工 ============ -->
+  <div class="screen hidden" id="overScreen">
+    <div class="card over-card">
+      <div class="over-ico" id="overIco">!</div>
+      <div class="over-title" id="overTitle">追捕失败</div>
+      <div class="over-sub" id="overSub">--</div>
+      <div class="over-stats">
+        <div class="cell"><div class="v" id="ovCaught">0</div><div class="k">逮捕人数</div></div>
+        <div class="cell"><div class="v" id="ovBounty">0</div><div class="k">本轮赏金</div></div>
+        <div class="cell"><div class="v" id="ovAcc">0%</div><div class="k">答题准确率</div></div></div>
+      </div>
+      <div class="res-note" id="overNote"></div>
+      <button class="btn-main" id="btnAgain">再 来 一 次</button>
+      <button class="btn-line" id="btnHome">返回标题</button>
+    </div>
+  </div>
+
+  <!-- ============ 暂停 ============ -->
+  <div class="screen hidden" id="pauseScreen">
+    <div class="card pause-card">
+      <div class="pause-title">追 缉 暂 停</div>
+      <div class="pause-sub">通缉犯正在前面等着你</div>
+      <button class="btn-main" id="btnResume">继 续 追 缉</button>
+      <button class="btn-line" id="btnRestart">重新开始本轮</button>
+      <button class="btn-line" id="btnQuit">退出通缉令</button>
+    </div>
+  </div>
+
+  <div id="dbg"></div>
+</div>
+
+<script>
+(function(){
+'use strict';
+
+/* ============================================================
+   0. 小工具
+   ============================================================ */
+const $ = id => document.getElementById(id);
+const clamp = (v,a,b)=> v<a?a:(v>b?b:v);
+const rnd = (a,b)=> a + Math.random()*(b-a);
+const pick = arr => arr[Math.floor(Math.random()*arr.length)];
+const TAU = Math.PI*2;
+function shuffle(a){ const r=a.slice(); for(let i=r.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); const t=r[i]; r[i]=r[j]; r[j]=t; } return r; }
+function fmt(n){ return Math.round(n).toLocaleString('zh-CN'); }
+
+/* ============================================================
+   1. 题库（小学知识，三个难度）
+   ============================================================ */
+const BANK = {
+1:[
+ {t:'数学题',q:'比 3.2 大的数是？',o:['3.05','3.19','3.21','3.02'],a:2},
+ {t:'数学题',q:'1 米等于多少厘米？',o:['10 厘米','100 厘米','1000 厘米','60 厘米'],a:1},
+ {t:'数学题',q:'钟面上分针走一圈是多少分钟？',o:['30 分钟','60 分钟','12 分钟','24 分钟'],a:1},
+ {t:'数学题',q:'56 ÷ 7 = ？',o:['7','8','9','6'],a:1},
+ {t:'数学题',q:'7 + 8 = ？',o:['14','15','16','17'],a:1},
+ {t:'数学题',q:'100 - 35 = ？',o:['65','75','55','85'],a:0},
+ {t:'数学题',q:'12 × 3 = ？',o:['24','36','48','30'],a:1},
+ {t:'数学题',q:'1 千克等于多少克？',o:['10 克','100 克','1000 克','10000 克'],a:2},
+ {t:'数学题',q:'一周有几天？',o:['5 天','6 天','7 天','8 天'],a:2},
+ {t:'数学题',q:'一个直角是多少度？',o:['45°','90°','180°','360°'],a:1},
+ {t:'语文题',q:'“雪”字的正确拼音是？',o:['xüě','xuě','xue','xěu'],a:1},
+ {t:'语文题',q:'《静夜思》的作者是谁？',o:['李白','杜甫','白居易','王维'],a:0},
+ {t:'语文题',q:'下列哪个是描写春天的成语？',o:['冰天雪地','春暖花开','秋高气爽','骄阳似火'],a:1},
+ {t:'语文题',q:'“床前明月光”的下一句是？',o:['疑是地上霜','举头望明月','低头思故乡','处处闻啼鸟'],a:0},
+ {t:'语文题',q:'下列哪个是水果？',o:['白菜','苹果','萝卜','土豆'],a:1},
+ {t:'语文题',q:'下列哪个字的读音是三声？',o:['妈','马','麻','骂'],a:1},
+ {t:'语文题',q:'“春眠不觉晓”的作者是？',o:['李白','孟浩然','杜甫','王维'],a:1},
+ {t:'语文题',q:'下列哪个成语形容很着急？',o:['心急如焚','兴高采烈','平平安安','四通八达'],a:0},
+ {t:'语文题',q:'“人”字一共有几笔？',o:['1 笔','2 笔','3 笔','4 笔'],a:1},
+ {t:'语文题',q:'“开心”的反义词是？',o:['高兴','难过','快乐','愉快'],a:1},
+ {t:'英语题',q:'cat 的中文意思是？',o:['狗','猫','帽子','汽车'],a:1},
+ {t:'英语题',q:'苹果的英文单词是？',o:['banana','orange','apple','pear'],a:2},
+ {t:'英语题',q:'dog 的中文意思是？',o:['猫','狗','鸟','鱼'],a:1},
+ {t:'英语题',q:'“红色”的英文单词是？',o:['blue','green','red','yellow'],a:2},
+ {t:'英语题',q:'“你好”的英文是？',o:['Goodbye','Hello','Sorry','Thanks'],a:1},
+ {t:'科学常识题',q:'一天中太阳升得最高的时候大约是？',o:['早上 6 点','中午 12 点','下午 6 点','半夜 12 点'],a:1},
+ {t:'科学常识题',q:'水沸腾时的温度大约是？',o:['50°C','80°C','100°C','120°C'],a:2},
+ {t:'科学常识题',q:'下列哪个是昆虫？',o:['蜘蛛','蜜蜂','螃蟹','蜗牛'],a:1},
+ {t:'科学常识题',q:'月亮本身会发光吗？',o:['会','不会','有时会','不知道'],a:1},
+ {t:'科学常识题',q:'下列哪个能在水里生活？',o:['猫','金鱼','鸡','马'],a:1}
+],
+2:[
+ {t:'数学题',q:'3/4 + 1/4 = ？',o:['1','4/8','3/8','1/2'],a:0},
+ {t:'数学题',q:'一个正方形边长 5 厘米，它的周长是？',o:['10 厘米','15 厘米','20 厘米','25 厘米'],a:2},
+ {t:'数学题',q:'0.5 × 100 = ？',o:['5','0.05','50','500'],a:2},
+ {t:'数学题',q:'最小的两位数是 4 的几倍？',o:['3 倍','12 倍','16 倍','20 倍'],a:1},
+ {t:'数学题',q:'2/3 和 3/5 谁更大？',o:['2/3','3/5','一样大','无法比较'],a:0},
+ {t:'数学题',q:'一个长方形长 6 厘米、宽 4 厘米，面积是？',o:['10 平方厘米','20 平方厘米','24 平方厘米','48 平方厘米'],a:2},
+ {t:'数学题',q:'7 × 8 = ？',o:['54','56','63','64'],a:1},
+ {t:'数学题',q:'1.5 + 2.25 = ？',o:['3.25','3.5','3.75','4.25'],a:2},
+ {t:'数学题',q:'24 和 36 的最大公因数是？',o:['4','6','8','12'],a:3},
+ {t:'数学题',q:'一个数除以 5 商 4 余 3，这个数是？',o:['20','23','27','19'],a:1},
+ {t:'语文题',q:'“亡羊补牢”告诉我们什么道理？',o:['做事要勇敢','出了问题要及时补救','生活要节约','要多读书'],a:1},
+ {t:'语文题',q:'“飞流直下三千尺”描写的是什么？',o:['黄河','庐山瀑布','长江','泰山'],a:1},
+ {t:'语文题',q:'下列句子中哪一句是比喻句？',o:['他长得像他爸爸','弯弯的月亮像小船','我在看书','太阳升起来了'],a:1},
+ {t:'语文题',q:'“桂林山水甲天下”中的“甲”意思是？',o:['第一','第二','铠甲','甲虫'],a:0},
+ {t:'语文题',q:'下列哪个成语表示“非常少见”？',o:['独一无二','习以为常','比比皆是','层出不穷'],a:0},
+ {t:'语文题',q:'“掩耳盗铃”的人错在哪里？',o:['以为自己听不见别人也听不见','铃太响','怕被人发现','偷不到铃'],a:0},
+ {t:'语文题',q:'下列哪个是拟人句？',o:['花儿在风中跳舞','花儿很红','花儿开了','我在赏花'],a:0},
+ {t:'语文题',q:'“小荷才露尖尖角”描写的是什么季节？',o:['春天','夏天','秋天','冬天'],a:1},
+ {t:'语文题',q:'下列哪个词语和“急忙”意思相近？',o:['悠闲','匆忙','缓慢','从容'],a:1},
+ {t:'语文题',q:'“精益求精”中的“益”意思是？',o:['更加','利益','好处','增加'],a:0},
+ {t:'英语题',q:'I ___ a student.（我是一名学生）',o:['am','is','are','be'],a:0},
+ {t:'英语题',q:'“How old are you?” 的正确回答是？',o:["I'm fine","I'm 12",'Yes, I am','Thank you'],a:1},
+ {t:'英语题',q:'下列哪个是“图书馆”？',o:['school','library','hospital','market'],a:1},
+ {t:'英语题',q:'She ___ to school every day.（她每天去上学）',o:['go','goes','going','went'],a:1},
+ {t:'英语题',q:'下列哪个是“老师”？',o:['student','doctor','teacher','farmer'],a:2},
+ {t:'英语题',q:'What colour is the sky?（天空是什么颜色？）',o:["It's blue","It's red","It's white","It's green"],a:0},
+ {t:'英语题',q:'“冬天”的英文是？',o:['spring','summer','autumn','winter'],a:3},
+ {t:'英语题',q:'There ___ some water in the glass.（杯子里有些水）',o:['is','are','am','be'],a:0},
+ {t:'科学常识题',q:'植物光合作用需要吸收什么气体？',o:['氧气','二氧化碳','氮气','水蒸气'],a:1},
+ {t:'科学常识题',q:'地球绕太阳转一圈大约需要？',o:['一天','一个月','一年','一小时'],a:2}
+],
+3:[
+ {t:'数学题',q:'一件衣服 200 元，打八折出售，售价是？',o:['160 元','180 元','140 元','120 元'],a:0},
+ {t:'数学题',q:'一个圆的直径是 8 厘米，它的半径是？',o:['16 厘米','8 厘米','4 厘米','2 厘米'],a:2},
+ {t:'数学题',q:'3x + 5 = 20，x = ？',o:['3','5','6','15'],a:1},
+ {t:'数学题',q:'三角形三个内角的和是多少度？',o:['90°','180°','270°','360°'],a:1},
+ {t:'数学题',q:'一个数的 25% 是 12，这个数是？',o:['24','36','48','60'],a:2},
+ {t:'数学题',q:'路程 120 千米，速度 40 千米/时，需要几小时？',o:['2 小时','3 小时','4 小时','6 小时'],a:1},
+ {t:'数学题',q:'3/5 化成百分数是？',o:['30%','50%','60%','35%'],a:2},
+ {t:'数学题',q:'一个正方体棱长 3 厘米，体积是？',o:['9 立方厘米','18 立方厘米','27 立方厘米','81 立方厘米'],a:2},
+ {t:'数学题',q:'2 的 5 次方等于？',o:['10','16','25','32'],a:3},
+ {t:'数学题',q:'比例尺 1:1000，图上 2 厘米代表实际距离？',o:['2 米','20 米','200 米','2000 米'],a:1},
+ {t:'语文题',q:'“欲穷千里目，更上一层楼”的作者是？',o:['李白','王之涣','杜甫','孟浩然'],a:1},
+ {t:'语文题',q:'“虽然下雨了，（ ）我们照样去春游。”选哪个关联词？',o:['所以','但是','而且','因为'],a:1},
+ {t:'语文题',q:'“山穷水尽”中“尽”的意思是？',o:['尽力','尽兴','尽头','尽心'],a:2},
+ {t:'语文题',q:'“不识庐山真面目，只缘身在此山中”的作者是？',o:['李白','苏轼','王安石','陆游'],a:1},
+ {t:'语文题',q:'“有朋自远方来，不亦乐乎”出自哪部书？',o:['《论语》','《孟子》','《庄子》','《老子》'],a:0},
+ {t:'语文题',q:'下列哪个是夸张句？',o:['他的嗓门大得像喇叭','他很高','他跑了','他在说话'],a:0},
+ {t:'语文题',q:'“丢盔弃甲”中的“盔”指的是？',o:['盾牌','头盔','铠甲','兵器'],a:1},
+ {t:'语文题',q:'“吾”在文言文中指的是？',o:['你','我','他','你们'],a:1},
+ {t:'语文题',q:'下列哪个词语是褒义词？',o:['奋不顾身','胆小如鼠','狼狈为奸','偷鸡摸狗'],a:0},
+ {t:'语文题',q:'“人固有一死，或重于泰山，或轻于鸿毛”出自？',o:['司马迁《报任安书》','李白','杜甫','苏轼'],a:0},
+ {t:'英语题',q:'He ___ football every day.（他每天踢足球）',o:['play','plays','playing','played'],a:1},
+ {t:'英语题',q:'下列哪个是蔬菜（vegetable）？',o:['apple','potato','banana','pear'],a:1},
+ {t:'英语题',q:'下列哪个是“科学家”？',o:['scientist','singer','driver','pilot'],a:0},
+ {t:'英语题',q:'I have ___ apple.（我有一个苹果）',o:['a','an','the','/'],a:1},
+ {t:'英语题',q:'下列哪个句子是过去时？',o:['I go home','I went home','I will go home','I am going home'],a:1},
+ {t:'英语题',q:'“明天见”用英语说是？',o:['Good morning','See you tomorrow','How are you','Excuse me'],a:1},
+ {t:'英语题',q:'下列哪个是形容词？',o:['quickly','happy','run','book'],a:1},
+ {t:'英语题',q:'My brother ___ TV now.（我弟弟正在看电视）',o:['watch','watches','is watching','watched'],a:2},
+ {t:'科学常识题',q:'下列哪种材料能导电？',o:['木头','塑料','铜','橡胶'],a:2},
+ {t:'科学常识题',q:'声音在下列哪种介质中传播最快？',o:['空气','水','钢铁','真空'],a:2}
+]
+};
+
+/* ============================================================
+   2. 通缉犯 / 难度
+   ============================================================ */
+const VILLAINS = [
+ {name:'黑胡子·卡洛', lv:1, bounty:600, tag:'码头海盗头目', img:'villains/wanted_1_carlo_blackbeard.png'},
+ {name:'独眼·罗根', lv:1, bounty:650, tag:'街头悍匪', img:'villains/wanted_2_logan_oneeye.png'},
+ {name:'狡狐·米娅', lv:2, bounty:1600, tag:'诈骗团伙主谋', img:'villains/wanted_3_mia_fox.png'},
+ {name:'雾影·西德', lv:2, bounty:1700, tag:'潜行刺客', img:'villains/wanted_4_sid_fogshadow.png'},
+ {name:'毒舌·薇拉', lv:2, bounty:1800, tag:'流言贩子', img:'villains/wanted_7_vera_poison.png'},
+ {name:'金牙·杜克', lv:3, bounty:3600, tag:'走私大亨', img:'villains/wanted_5_duke_goldtooth.png'},
+ {name:'狼心·奥托', lv:3, bounty:3800, tag:'赏金屠夫', img:'villains/wanted_6_otto_wolf.png'},
+ {name:'断眉·凯恩', lv:3, bounty:4200, tag:'越狱重犯', img:'villains/wanted_8_kane_browscar.png'}
+];
+const DIFF = {
+ 1:{speed:286, qGap:4.9, qLimit:9,  orb:0,   gapMin:540, gapMax:780},
+ 2:{speed:306, qGap:4.4, qLimit:7.5,orb:2.7, gapMin:480, gapMax:700},
+ 3:{speed:330, qGap:3.9, qLimit:6.2,orb:2.1, gapMin:440, gapMax:640}
+};
+
+/* ============================================================
+   3. 音效（纯 WebAudio，无外部文件）
+   ============================================================ */
+const SFX = {
+  ctx:null, muted:false,
+  init(){
+    if(!this.ctx){
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if(AC) this.ctx = new AC();
+    }
+    if(this.ctx && this.ctx.state==='suspended'){ try{ this.ctx.resume(); }catch(e){} }
+  },
+  tone(freq, dur, type, gain, slideTo){
+    if(this.muted || !this.ctx) return;
+    try{
+      const t0 = this.ctx.currentTime;
+      const o = this.ctx.createOscillator();
+      const g = this.ctx.createGain();
+      o.type = type || 'sine';
+      o.frequency.setValueAtTime(freq, t0);
+      if(slideTo) o.frequency.exponentialRampToValueAtTime(Math.max(40,slideTo), t0+dur);
+      g.gain.setValueAtTime(0.0001, t0);
+      g.gain.exponentialRampToValueAtTime(gain||0.06, t0+0.012);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0+dur);
+      o.connect(g); g.connect(this.ctx.destination);
+      o.start(t0); o.stop(t0+dur+0.02);
+    }catch(e){}
+  },
+  jump(){ this.tone(420,.13,'square',.035,640); },
+  correct(){ this.tone(660,.1,'triangle',.07); setTimeout(()=>this.tone(990,.14,'triangle',.06),90); },
+  wrong(){ this.tone(180,.2,'sawtooth',.05,110); setTimeout(()=>this.tone(120,.18,'sawtooth',.045,80),120); },
+  hit(){ this.tone(90,.16,'square',.06,60); },
+  dash(){ this.tone(300,.18,'sine',.05,900); },
+  arrest(){ [523,659,784,1046].forEach((f,i)=>setTimeout(()=>this.tone(f,.22,'triangle',.075),i*110)); },
+  sting(){ this.tone(140,.35,'sawtooth',.05,320); },
+  coin(){ this.tone(880,.06,'square',.04,1200); },
+  shot(){ this.tone(1100,.045,'square',.032,420); this.tone(120,.07,'sawtooth',.04,60); },
+  clang(){ this.tone(1500,.06,'square',.028,700); setTimeout(()=>this.tone(900,.05,'triangle',.025,1500),45); },
+  toggle(){ return this.muted = !this.muted; }
+};
+
+/* ============================================================
+   4. 画布与布局
+   ============================================================ */
+const app = $('app');
+const canvas = $('game');
+const ctx = canvas.getContext('2d');
+let W=960, H=540, DPR=1, groundY=380, pScreenX=240, bottomUI=168;
+const PORTRAIT = ()=> H > W;
+
+function layout(){
+  const r = app.getBoundingClientRect();
+  W = Math.max(320, Math.round(r.width));
+  H = Math.max(360, Math.round(r.height));
+  DPR = Math.min(2, window.devicePixelRatio || 1);
+  canvas.width = Math.round(W*DPR);
+  canvas.height = Math.round(H*DPR);
+  canvas.style.width = W+'px';
+  canvas.style.height = H+'px';
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+  bottomUI = PORTRAIT() ? 250 : 172;
+  groundY = H - bottomUI - 30;
+  pScreenX = PORTRAIT() ? Math.round(W*0.30) : Math.round(clamp(W*0.26,130,230));
+}
+window.addEventListener('resize', layout);
+if(window.ResizeObserver){ new ResizeObserver(layout).observe(app); }
+
+/* ============================================================
+   5. 背景素材（程序化生成，稳定不闪烁）
+   ============================================================ */
+const bg = {stars:[], far:[], mid:[], rain:[], tile:1500};
+function buildBg(){
+  bg.stars = [];
+  for(let i=0;i<80;i++) bg.stars.push({x:Math.random(), y:Math.random()*0.62, r:rnd(.4,1.6), p:rnd(0,TAU)});
+  bg.far = []; let x=0;
+  while(x < bg.tile){
+    const w = rnd(52,132), h = rnd(90,215);
+    bg.far.push({x, w, h});
+    x += w + rnd(8,34);
+  }
+  bg.mid = []; x=0;
+  while(x < bg.tile){
+    const w = rnd(76,150), h = rnd(150,300);
+    bg.mid.push({x, w, h, neon: Math.random()<0.55, hue: pick(['#0c2436','#0a1d2c','#102a3c','#0b2030'])});
+    x += w + rnd(12,40);
+  }
+  bg.rain = [];
+  for(let i=0;i<66;i++) bg.rain.push({x:Math.random()*1, y:Math.random()*1, len:rnd(8,20), v:rnd(.5,1.2)});
+}
+buildBg();
+
+/* ============================================================
+   6. 游戏状态
+   ============================================================ */
+const G = {
+  mode:'title',            // title | poster | run | duel | arrest | result | over
+  paused:false,
+  t:0,                     // 本场计时
+  level:1,
+  villain:null,
+  hp:5, maxHp:5,
+  gap:80,                  // 追缉距离(米)
+  speed:286, speedExtra:0,
+  bounty:0,                // 本轮累计赏金
+  clue:0,                  // 本场线索赏金
+  combo:0, maxCombo:0,
+  chaseQ:0, chaseQc:0,     // 本场答题数/答对数
+  runQ:0, runQc:0,         // 本轮答题数/答对数
+  caught:0, lastFail:'',
+  player:{x:0, y:0, vy:0, onGround:true, airJump:1, invuln:0},
+  cam:0, shake:0, flash:0, flashColor:'rgba(255,59,92,ALPHA)',
+  stumble:0, dash:0,
+  obstacles:[], coins:[], particles:[], floats:[], orbs:[],
+  spawnX:0, lastOrb:0,
+  quiz:null, nextQuiz:0, pendingDuel:false,
+  duel:null, arrestT:0, duelBanner:0,
+  villainStun:0, villainBubble:null, throwAnim:0,
+  intel:0, intelNeed:5, dashCd:0,
+  showdown:null, bullets:[], enemyShots:[],
+  mouse:{x:0,y:0}, keys:{},
+  best:0
+};
+
+const PH = 52, PW = 26;   // 玩家碰撞盒
+const cvsImg = {
+  player:null, villain:null, villainName:null
+};
+function loadImg(src){
+  const im = new Image();
+  im.src = src;
+  return im;
+}
+const PLAYER_IMG = loadImg('assets/player/player.png');
+
+function getVillainImg(v){
+  if(!v) return null;
+  if(cvsImg.villainName !== v.name){
+    cvsImg.villainName = v.name;
+    cvsImg.villain = loadImg(v.img);
+  }
+  return cvsImg.villain;
+}
+function preloadVillain(v){
+  if(!v) return;
+  const im = new Image(); im.src = v.img;
+}
+
+/* ============================================================
+   7. DOM 引用
+   ============================================================ */
+const ui = {
+  hud:$('hud'), avatar:$('hudAvatar'), name:$('hudName'), meta:$('hudMeta'),
+  dist:$('hudDist'), distLabel:$('hudDistLabel'), distBar:$('hudDistBar'), hearts:$('hudHearts'), bounty:$('hudBounty'),
+  combo:$('hudCombo'), intel:$('hudIntel'), pips:$('hudPips'), dashBar:$('hudDashBar'),
+  bossbar:$('bossbar'), bossName:$('bossName'), bossArmor:$('bossArmor'), bossState:$('bossState'),
+  banner:$('banner'), quiz:$('quizCard'), qTag:$('qTag'),
+  qTimer:$('qTimer'), qText:$('qText'), qOpts:$('qOpts'), qBar:$('qBar'), qHint:$('qHint'),
+  title:$('titleScreen'), poster:$('posterScreen'), result:$('resultScreen'),
+  over:$('overScreen'), pause:$('pauseScreen'), best:$('bestBounty'),
+  posterImg:$('posterImg'), posterName:$('posterName'), posterTag:$('posterTag'),
+  posterLv:$('posterLv'), posterBounty:$('posterBounty'),
+  resImg:$('resImg'), resTitle:$('resTitle'), resSub:$('resSub'), resRows:$('resRows'),
+  resNote:$('resNote'), ovCaught:$('ovCaught'), ovBounty:$('ovBounty'), ovAcc:$('ovAcc'),
+  overTitle:$('overTitle'), overSub:$('overSub'), overNote:$('overNote'), overIco:$('overIco')
+};
+
+function showScreen(el){
+  [ui.title,ui.poster,ui.result,ui.over,ui.pause].forEach(s=>s && s.classList.add('hidden'));
+  if(el) el.classList.remove('hidden');
+}
+function hideOverlays(){
+  [ui.title,ui.poster,ui.result,ui.over,ui.pause].forEach(s=>s && s.classList.add('hidden'));
+}
+
+/* ============================================================
+   8. 主循环
+   ============================================================ */
+let lastTs = 0;
+function frame(ts){
+  if(!lastTs) lastTs = ts;
+  const dt = Math.min(0.05, (ts - lastTs)/1000);
+  lastTs = ts;
+  if(!G.paused) update(dt);
+  render();
+  requestAnimationFrame(frame);
+}
+function update(dt){
+  switch(G.mode){
+    case 'run': updateRun(dt); break;
+    case 'duel': updateDuel(dt); break;
+    case 'arrest': updateArrest(dt); break;
+    default: updateAmbient(dt); break;
+  }
+}
+function updateAmbient(dt){
+  if(G.shake>0) G.shake = Math.max(0, G.shake - dt*2.4);
+  if(G.flash>0) G.flash = Math.max(0, G.flash - dt*2.6);
+  updateParticles(dt);
+  updateFloats(dt);
+  // 背景缓慢滚动
+  if(G.mode==='title' || G.mode==='poster' || G.mode==='over' || G.mode==='result'){
+    G.cam += 14*dt;
+  }
+}
+
+/* ---------- 生成关卡 ---------- */
+function spawnAhead(){
+  const limit = G.player.x + W*1.35;
+  while(G.spawnX < limit){
+    const d = DIFF[G.level] || DIFF[1];
+    G.spawnX += rnd(d.gapMin, d.gapMax);
+    const type = pick(['crate','crate','barrier','bin','pit','tower']);
+    const o = {x:G.spawnX, type, taken:false, hit:false};
+    if(type==='crate'){ o.w=46; o.h=58; }
+    else if(type==='tower'){ o.w=48; o.h=104; }
+    else if(type==='barrier'){ o.w=104; o.h=34; }
+    else if(type==='bin'){ o.w=54; o.h=62; }
+    else { o.w=72; o.h=0; o.pit=true; }
+    G.obstacles.push(o);
+
+    // 组合障碍：约两成概率在同一个缺口前再放一个，逼玩家规划连跳
+    if(!o.pit && Math.random()<0.22){
+      const t2 = pick(['crate','barrier','bin']);
+      const o2 = {x:o.x + o.w + 68, type:t2, taken:false, hit:false};
+      if(t2==='crate'){ o2.w=46; o2.h=58; }
+      else if(t2==='barrier'){ o2.w=104; o2.h=34; }
+      else { o2.w=54; o2.h=62; }
+      G.obstacles.push(o2);
+    }
+
+    // 障碍上方的线索金币（弧形）；越高的障碍，金币也抬得更高
+    if(Math.random()<0.55){
+      const n = 3 + (Math.random()<0.4?1:0);
+      const topY = groundY - 96 - Math.max(0, o.h-58);
+      for(let i=0;i<n;i++){
+        G.coins.push({x: o.x - 30 + i*34, y: topY - Math.sin(i/(n-1)*Math.PI)*42, r:11, taken:false, cb:Math.random()*TAU});
+      }
+    }
+  }
+  // 清理远处
+  const c = G.cam;
+  G.obstacles = G.obstacles.filter(o=> o.x + o.w > c - 220);
+  G.coins = G.coins.filter(k=> k.x > c - 220 && !k.taken);
+}
+
+/* ============================================================
+   9. 跑酷阶段
+   ============================================================ */
+function updateRun(dt){
+  /* 答题检查点：时间凝滞，只能作答，世界暂停 */
+  if(G.quiz){
+    tickQuiz(dt);
+    updateParticles(dt);
+    updateFloats(dt);
+    updateHUD();
+    return;
+  }
+
+  G.t += dt;
+  const p = G.player;
+
+  // 计时器
+  if(p.invuln>0) p.invuln -= dt;
+  if(G.dash>0) G.dash -= dt;
+  if(G.dashCd>0) G.dashCd -= dt;
+  if(G.stumble>0) G.stumble -= dt;
+  if(G.shake>0) G.shake -= dt*2.4;
+  if(G.flash>0) G.flash -= dt*2.6;
+  if(G.villainStun>0) G.villainStun -= dt;
+  if(G.villainBubble){ G.villainBubble.t -= dt; if(G.villainBubble.t<=0) G.villainBubble=null; }
+  if(G.throwAnim>0) G.throwAnim -= dt;
+
+  // 前进（冲刺有速度与无敌，撞开路障）
+  const spd = G.speed * (G.dash>0?1.7:1) * (G.stumble>0?0.72:1);
+  p.x += spd*dt;
+  G.cam = p.x - pScreenX;
+
+  // 距离漂移（通缉犯持续慢慢拉开）
+  G.gap = Math.min(100, G.gap + 0.55*dt);
+  if(G.gap >= 99.5){ failRun('目标甩开视野，逃了！'); return; }
+
+  // 跳跃物理
+  p.vy += 1500*dt;
+  p.y += p.vy*dt;
+  if(p.y >= groundY-PH){ p.y = groundY-PH; p.vy = 0; p.onGround = true; p.airJump = 1; }
+  else { p.onGround = false; }
+  if(p.y < 24){ p.y = 24; if(p.vy<0) p.vy = 0; }
+
+  spawnAhead();
+  collideObstacles();
+  if(G.mode!=='run') return;
+  checkNearMiss();
+  if(G.mode!=='run') return;
+  collideCoins();
+  updateOrbs(dt);
+  if(G.mode!=='run') return;
+  if(p.onGround && Math.random() < dt*9) spawnDust();
+  updateParticles(dt);
+  updateFloats(dt);
+
+  // 检查点答题：落地时触发，保证玩家能读题
+  if(!G.quiz && G.t >= G.nextQuiz && p.onGround) askQuestion('run');
+
+  updateHUD();
+}
+
+/* 擦身而过：贴着障碍顶端越过，奖励连击与赏金 */
+function checkNearMiss(){
+  const p = G.player;
+  for(const o of G.obstacles){
+    if(o.pit || o.taken || o.near) continue;
+    const sx = o.x - G.cam;
+    const edge = pScreenX - PW/2;
+    if(sx + o.w < edge && sx + o.w > edge - 90){
+      o.near = true;
+      const top = groundY - o.h;
+      if(!p.onGround && p.y+PH > top-26 && p.y+PH < top+3){
+        G.combo++;
+        G.maxCombo = Math.max(G.maxCombo, G.combo);
+        G.bounty += 25;
+        addFloat('擦身闪避 +25', pScreenX+12, p.y-6, '#5ef0ff', 14);
+        SFX.coin();
+        spawnBurst(pScreenX, top, 'rgba(94,240,255,.85)', 6);
+      }
+    }
+  }
+}
+
+function dash(){
+  if(G.mode!=='run' && G.mode!=='duel') return;
+  if(G.dashCd>0) return;
+  G.dash = 0.34;
+  G.dashCd = 2.4;
+  if(G.player) G.player.invuln = Math.max(G.player.invuln||0, 0.5);
+  SFX.dash();
+  if(G.mode==='run') spawnBurst(pScreenX, G.player.y+PH/2, 'rgba(94,240,255,.85)', 10);
+}
+
+function collideObstacles(){
+  const p = G.player;
+  const box = {x:pScreenX-PW/2, y:p.y, w:PW, h:PH};
+  for(const o of G.obstacles){
+    if(o.taken) continue;
+    const sx = o.x - G.cam;
+    if(sx > W+80 || sx + o.w < -80) continue;
+    if(o.pit){
+      if(p.onGround && box.x + box.w > sx+4 && box.x < sx + o.w - 4){
+        o.taken = true;
+        hitPlayer('跌进深坑');
+      }
+    } else {
+      const ob = {x:sx, y:groundY-o.h, w:o.w, h:o.h};
+      if(box.x < ob.x+ob.w && box.x+box.w > ob.x && box.y < ob.y+ob.h && box.y+box.h > ob.y){
+        o.taken = true;
+        hitPlayer('撞上路障');
+      }
+    }
+  }
+}
+
+function collideCoins(){
+  const p = G.player;
+  const box = {x:pScreenX-PW/2, y:p.y, w:PW, h:PH};
+  for(const k of G.coins){
+    if(k.taken) continue;
+    const sx = k.x - G.cam;
+    if(sx > W+30 || sx < -30) continue;
+    const bobY = k.y + Math.sin(G.t*3 + k.cb)*4;
+    if(sx > box.x-14 && sx < box.x+box.w+14 && bobY > box.y-16 && bobY < box.y+box.h+16){
+      k.taken = true;
+      G.clue += 45;
+      G.bounty += 45;
+      spawnBurst(sx, bobY, '#ffcf5c', 6);
+      addFloat('线索 +45', sx, bobY-12, '#ffcf5c', 13);
+      SFX.coin();
+    }
+  }
+}
+
+function hitPlayer(reason){
+  const p = G.player;
+  if(p.invuln>0) return;
+  G.hp--;
+  p.invuln = 1.5;
+  G.shake = 0.55;
+  G.flash = 0.28;
+  G.stumble = 0.65;
+  G.gap = Math.min(100, G.gap + 4);
+  G.combo = 0;
+  spawnBurst(pScreenX, p.y+PH/2, '#ff3b5c', 14);
+  addFloat(reason+' -1♥', pScreenX, p.y-10, '#ff7a92', 15);
+  SFX.hit();
+  updateHUD();
+  if(G.hp <= 0) failRun('体力耗尽，被通缉犯击倒');
+}
+
+function jump(){
+  if(G.mode!=='run' && G.mode!=='duel') return;
+  const p = G.player;
+  const sx = (G.mode==='duel' && G.showdown) ? G.showdown.px : pScreenX;
+  if(p.onGround){ p.vy = -620; p.onGround = false; SFX.jump(); spawnDust(6); }
+  else if(p.airJump > 0){ p.airJump--; p.vy = -520; SFX.jump(); spawnBurst(sx, p.y+PH, 'rgba(94,240,255,.8)', 6); }
+}
+
+/* ---------- 通缉犯投掷狡辩弹 ---------- */
+function updateOrbs(dt){
+  const d = DIFF[G.level] || DIFF[1];
+  if(d.orb > 0 && G.t > 1.6 && G.t - G.lastOrb > d.orb){
+    G.lastOrb = G.t;
+    G.throwAnim = 0.35;
+    const originX = villainScreenX();
+    G.orbs.push({x:originX-24, y:groundY-58, base:groundY-58, vx:-rnd(230,290), t:0});
+  }
+  const p = G.player;
+  const box = {x:pScreenX-PW/2, y:p.y, w:PW, h:PH};
+  for(const o of G.orbs){
+    o.t += dt;
+    o.x += o.vx*dt;
+    o.y = o.base + Math.sin(o.t*5)*12;
+    if(o.x < box.x+box.w+6 && o.x > box.x-8 && o.y > box.y-6 && o.y < box.y+box.h+6){
+      o.dead = true;
+      hitPlayer('被狡辩弹击中');
+    }
+    if(o.x < -40) o.dead = true;
+  }
+  G.orbs = G.orbs.filter(o=>!o.dead);
+}
+
+/* ============================================================
+   10. 答题
+   ============================================================ */
+function pickQuestion(level){
+  const pool = BANK[level] || BANK[1];
+  if(!G.qPool || G.qPoolLevel !== level || G.qPool.length === 0){
+    G.qPool = shuffle(pool.slice());
+    G.qPoolLevel = level;
+  }
+  return G.qPool.pop();
+}
+
+function askQuestion(kind){
+  const level = G.villain ? G.villain.lv : 1;
+  const raw = pickQuestion(level);
+  const opts = shuffle(raw.o.map((text,i)=>({text, ok:i===raw.a})));
+  const correct = opts.findIndex(o=>o.ok);
+  const limit = (level===1?7.5:(level===2?7:(level===3?6.4:7.5)));
+  G.quiz = {kind, t:raw.t, q:raw.q, opts, correct, left:limit, limit, answered:false, chosen:-1, hold:0};
+  G.chaseQ++; G.runQ++;
+  renderQuiz();
+  ui.quiz.classList.remove('hidden');
+}
+
+function renderQuiz(){
+  const q = G.quiz;
+  if(!q) return;
+  ui.qTag.textContent = '检查点 · 情报 '+Math.min(G.intelNeed,G.intel+1)+'/'+G.intelNeed;
+  ui.qText.textContent = q.q;
+  ui.qTimer.textContent = q.left.toFixed(1)+'s';
+  ui.qTimer.classList.toggle('warn', q.left <= 2.2);
+  ui.qBar.style.transform = 'scaleX('+clamp(q.left/q.limit,0,1)+')';
+  ui.qBar.style.background = q.left<=2.2 ? 'linear-gradient(90deg,#ff3b5c,#ff7a92)' : 'linear-gradient(90deg,#5ef0ff,#ffcf5c)';
+  ui.qHint.textContent = (window.matchMedia && window.matchMedia('(pointer:coarse)').matches)
+    ? '点选项作答 · 点画面跳跃'
+    : '时间已凝滞 · 按 1–4 或 A–D 作答 · 答对获得 1 份情报';
+  ui.qOpts.innerHTML = '';
+  q.opts.forEach((o,i)=>{
+    const b = document.createElement('button');
+    b.className = 'qopt';
+    b.innerHTML = '<span class="k">'+String.fromCharCode(65+i)+'</span><span>'+o.text+'</span>';
+    b.onclick = ()=> answerQuiz(i);
+    ui.qOpts.appendChild(b);
+  });
+}
+
+function tickQuiz(dt){
+  const q = G.quiz;
+  if(!q) return;
+  if(q.answered){
+    q.hold -= dt;
+    if(q.hold <= 0) closeQuiz();
+    return;
+  }
+  q.left -= dt;
+  if(q.left <= 0){ q.left = 0; answerQuiz(-1, true); return; }
+  ui.qTimer.textContent = q.left.toFixed(1)+'s';
+  ui.qTimer.classList.toggle('warn', q.left <= 2.2);
+  ui.qBar.style.transform = 'scaleX('+clamp(q.left/q.limit,0,1)+')';
+  if(q.left<=2.2) ui.qBar.style.background = 'linear-gradient(90deg,#ff3b5c,#ff7a92)';
+}
+
+function answerQuiz(idx, timeout){
+  const q = G.quiz;
+  if(!q || q.answered) return;
+  q.answered = true;
+  q.chosen = idx;
+  q.hold = 0.65;
+  const ok = idx === q.correct;
+  const nodes = ui.qOpts.querySelectorAll('.qopt');
+  nodes.forEach((n,i)=>{
+    n.disabled = true;
+    if(i === q.correct) n.classList.add('ok');
+    else if(i === idx) n.classList.add('bad');
+  });
+  if(ok){
+    G.chaseQc++; G.runQc++;
+    G.intel = Math.min(G.intelNeed, G.intel+1);
+    G.combo++;
+    G.maxCombo = Math.max(G.maxCombo, G.combo);
+    G.dash = 0.55;
+    G.gap = Math.max(0, G.gap - 20);
+    G.villainStun = 0.8;
+    G.villainBubble = {text:'可恶…！', t:1.2};
+    G.bounty += 40 + G.combo*10;
+    G.pendingDuel = G.intel >= G.intelNeed;
+    spawnBurst(pScreenX+30, G.player.y+PH/2, '#4dff9d', 14);
+    addFloat('情报 '+G.intel+'/'+G.intelNeed+' · 逼近 20 米', pScreenX+34, G.player.y-8, '#4dff9d', 16);
+    SFX.correct();
+    if(G.combo>1 && G.combo%3===0) addFloat('连击 x'+G.combo+' 赏金加成', pScreenX+50, G.player.y-34, '#5ef0ff', 14);
+  } else {
+    G.combo = 0;
+    G.gap = Math.min(100, G.gap + 16);
+    G.hp--;
+    G.shake = 0.6;
+    G.flash = 0.3;
+    G.villainBubble = {text:'哈哈哈！', t:1.4};
+    addFloat(timeout?'超时！被甩开 16 米':'答错！被甩开 16 米', pScreenX+40, G.player.y-8, '#ff7a92', 16);
+    SFX.wrong();
+    if(G.hp <= 0) q.fail = true;
+  }
+  updateHUD();
+}
+
+function closeQuiz(){
+  const q = G.quiz;
+  const kind = q ? q.kind : null;
+  const fail = q && q.fail;
+  G.quiz = null;
+  ui.quiz.classList.add('hidden');
+  if(fail || G.hp<=0){ failRun('体力耗尽，被通缉犯击倒'); return; }
+  if(kind==='run' && G.mode==='run'){
+    if(G.pendingDuel){ G.pendingDuel = false; startDuel(); return; }
+    const d = DIFF[G.level] || DIFF[1];
+    G.nextQuiz = Math.max(G.t + 1.4, G.t + d.qGap);
+  }
+}
+
+/* ============================================================
+   11. 最后对质 / 逮捕 / 结算
+   ============================================================ */
+function startDuel(){
+  G.mode = 'duel';
+  G.quiz = null;
+  ui.quiz.classList.add('hidden');
+  clearTimeout(bannerTm); ui.banner.className = 'banner';
+  G.duel = {armor:3, used:0, next:0.9, t:0, over:false};
+  G.showdown = {
+    px: Math.max(76, W*0.22), vx: Math.max(W*0.64, Math.min(W-90, W*0.76)),
+    dir: -1, t:0, open:0, cycle:1.4, fireT:1.5, charge:0, aimX:0, aimY:0,
+    shotCd:0, hit:0, block:0
+  };
+  G.gap = 2;
+  G.obstacles = []; G.coins = []; G.orbs = [];
+  G.player.y = groundY-PH; G.player.vy = 0; G.player.onGround = true;
+  G.player.airJump = 1; G.player.invuln = 1.0;
+  G.bullets = []; G.enemyShots = [];
+  G.gunFlash = 0;
+  G.dash = 0; G.dashCd = 0; G.duelBanner = 2.6;
+  G.speed = 0;
+  G.mouse.x = W*0.5; G.mouse.y = H*0.5;
+  canvas.style.cursor = 'none';
+  ui.bossbar.classList.remove('hidden');
+  ui.bossName.textContent = G.villain ? G.villain.name : '通缉犯';
+  updateBossHUD();
+  SFX.sting();
+  updateHUD();
+}
+
+function updateBossHUD(){
+  const s = G.showdown;
+  if(!s){ ui.bossbar.classList.add('hidden'); return; }
+  let pips = '';
+  for(let i=0;i<3;i++) pips += '<i class="'+(i < (G.duel?G.duel.armor:3)?'on':'')+'"></i>';
+  ui.bossArmor.innerHTML = pips;
+  const open = s.open > 0;
+  ui.bossState.textContent = open ? ('护盾过载 · 弱点暴露 '+s.open.toFixed(1)+'s') : '护盾展开 · 等待过载';
+  ui.bossState.classList.toggle('open', open);
+}
+
+function updateDuel(dt){
+  const s = G.showdown;
+  if(!s) return;
+  s.t += dt;
+  if(G.duelBanner>0) G.duelBanner -= dt;
+  if(G.shake>0) G.shake -= dt*2.4;
+  if(G.flash>0) G.flash -= dt*2.6;
+  if(G.player.invuln>0) G.player.invuln -= dt;
+  if(G.dashCd>0) G.dashCd -= dt;
+  if(s.shotCd>0) s.shotCd -= dt;
+  if(s.hit>0) s.hit -= dt;
+  if(s.block>0) s.block -= dt;
+  if(G.gunFlash>0) G.gunFlash -= dt;
+  if(G.villainStun>0) G.villainStun = Math.max(0, G.villainStun - dt);
+  if(G.villainBubble){ G.villainBubble.t -= dt; if(G.villainBubble.t<=0) G.villainBubble=null; }
+
+  // 玩家左右移动 + 跳跃
+  let dir = 0;
+  if(G.keys['a'] || G.keys['arrowleft']) dir -= 1;
+  if(G.keys['d'] || G.keys['arrowright']) dir += 1;
+  s.px += dir * 255 * dt;
+  s.px = clamp(s.px, W*0.10, W*0.47);
+  const p = G.player;
+  p.vy += 1500*dt;
+  p.y += p.vy*dt;
+  if(p.y >= groundY-PH){ p.y = groundY-PH; p.vy = 0; p.onGround = true; p.airJump = 1; }
+
+  // 通缉犯在掩体间横向游走
+  s.vx += s.dir * (78 + (3-G.duel.armor)*14) * dt;
+  if(s.vx < W*0.56){ s.vx = W*0.56; s.dir = 1; }
+  if(s.vx > W*0.87){ s.vx = W*0.87; s.dir = -1; }
+
+  // 护盾过载窗口
+  if(s.open > 0){
+    s.open -= dt;
+    if(s.open <= 0){ s.open = 0; s.cycle = 1.9; }
+  } else {
+    s.cycle -= dt;
+    if(s.cycle <= 0){
+      s.open = 2.3;
+      s.cycle = 999;
+      addFloat('护盾过载！打红色弱点', s.vx, groundY-116, '#ffcf5c', 16);
+      SFX.correct();
+    }
+  }
+
+  // 远程武器：先蓄力预警，再发射
+  s.fireT -= dt;
+  if(s.fireT <= 0 && s.charge <= 0){
+    s.charge = 0.55;
+    s.aimX = s.px;
+    s.aimY = p.y + PH/2;
+  }
+  if(s.charge > 0){
+    s.charge -= dt;
+    if(s.charge <= 0){
+      fireEnemyShot();
+      s.fireT = rnd(1.25, 1.85);
+    }
+  }
+
+  // 玩家子弹
+  for(const b of G.bullets){
+    b.x += b.vx*dt; b.y += b.vy*dt; b.life -= dt;
+    b.trail.push({x:b.x, y:b.y});
+    if(b.trail.length > 6) b.trail.shift();
+    if(b.x < -30 || b.x > W+30 || b.y < -30 || b.y > H+30) b.dead = true;
+    const top = groundY-98, bot = groundY-2;
+    if(b.x > s.vx-46 && b.x < s.vx+46 && b.y > top && b.y < bot){
+      b.dead = true;
+      if(s.open > 0 && G.duel.armor > 0){
+        G.duel.armor--;
+        s.open = 0; s.cycle = 1.9;
+        s.hit = 0.3;
+        G.shake = 0.55; G.flash = 0.3;
+        G.bounty += 180;
+        spawnBurst(s.vx, groundY-60, '#ffcf5c', 22);
+        addFloat('护盾击碎 -1', s.vx, groundY-108, '#ffcf5c', 20);
+        SFX.correct();
+        if(G.duel.armor <= 0){ startArrest(); return; }
+      } else {
+        s.block = 0.28;
+        spawnBurst(b.x, b.y, '#9fd8ff', 10);
+        addFloat('护盾弹开', b.x, b.y-10, '#9fd8ff', 12);
+        SFX.clang();
+      }
+    }
+  }
+  G.bullets = G.bullets.filter(b=>!b.dead);
+
+  // 敌方弹幕
+  const box = {x:s.px-PW/2, y:p.y, w:PW, h:PH};
+  for(const b of G.enemyShots){
+    b.x += b.vx*dt; b.y += b.vy*dt; b.life -= dt;
+    if(b.x < -40 || b.x > W+40 || b.y < -40 || b.y > H+40) b.dead = true;
+    if(b.x > box.x-6 && b.x < box.x+box.w+6 && b.y > box.y-4 && b.y < box.y+box.h+4){
+      b.dead = true;
+      if(p.invuln <= 0){
+        G.hp--;
+        p.invuln = 1.1;
+        G.shake = 0.5; G.flash = 0.32;
+        G.combo = 0;
+        spawnBurst(s.px, p.y+PH/2, '#ff3b5c', 14);
+        addFloat('中弹 -1♥', s.px, p.y-8, '#ff7a92', 16);
+        SFX.hit();
+        updateHUD();
+        if(G.hp <= 0){ failRun('枪战失手，被通缉犯击倒'); return; }
+      }
+    }
+  }
+  G.enemyShots = G.enemyShots.filter(b=>!b.dead);
+  updateParticles(dt);
+  updateFloats(dt);
+  updateBossHUD();
+  updateHUD();
+}
+
+function fireEnemyShot(){
+  const s = G.showdown;
+  if(!s) return;
+  const ox = s.vx - 30, oy = groundY-62;
+  const a = Math.atan2(s.aimY-oy, s.aimX-ox);
+  const sp = 340;
+  G.enemyShots.push({x:ox, y:oy, vx:Math.cos(a)*sp, vy:Math.sin(a)*sp, r:8, life:4});
+  SFX.tone(280, .12, 'sawtooth', .04, 110);
+}
+
+function shootAt(x, y){
+  const s = G.showdown;
+  if(G.mode!=='duel' || !s) return;
+  G.mouse.x = x; G.mouse.y = y;
+  if(s.shotCd > 0) return;
+  s.shotCd = 0.22;
+  const ox = s.px + 18, oy = G.player.y + PH/2 - 16;
+  const a = Math.atan2(y-oy, x-ox);
+  const sp = 880;
+  G.bullets.push({x:ox, y:oy, vx:Math.cos(a)*sp, vy:Math.sin(a)*sp, life:1.2, trail:[]});
+  G.gunFlash = 0.12;
+  spawnBurst(ox, oy, '#ffcf5c', 5);
+  G.shake = Math.max(G.shake, 0.12);
+  SFX.shot();
+  updateHUD();
+}
+
+function startArrest(){
+  G.mode = 'arrest';
+  G.arrestT = 0;
+  G.quiz = null;
+  ui.quiz.classList.add('hidden');
+  ui.bossbar.classList.add('hidden');
+  canvas.style.cursor = 'default';
+  G.bullets = [];
+  G.enemyShots = [];
+  G.gunFlash = 0;
+  showBanner('逮 捕 成 功', 'ok', 2000);
+  SFX.arrest();
+  const vx = G.showdown ? G.showdown.vx : duelVillainX();
+  spawnBurst(vx, groundY-60, '#ffcf5c', 26);
+  G.shake = 0.5;
+}
+function updateArrest(dt){
+  G.arrestT += dt;
+  updateParticles(dt);
+  updateFloats(dt);
+  if(G.arrestT > 1.65) showResult();
+}
+
+function computeReward(){
+  const v = G.villain;
+  const base = v ? v.bounty : 600;
+  const acc = G.chaseQ ? G.chaseQc / G.chaseQ : 1;
+  let mult = 0.55 + 0.45*acc;
+  let comboBonus = G.maxCombo>=6 ? 0.25 : (G.maxCombo>=4 ? 0.15 : (G.maxCombo>=2 ? 0.08 : 0));
+  const big = Math.round(base*mult + G.clue);
+  return {base, acc, mult, comboBonus, big, total: Math.round(big*(1+comboBonus))};
+}
+
+function showResult(){
+  const v = G.villain;
+  const r = computeReward();
+  G.bounty += r.total;
+  G.caught++;
+  G.hp = Math.min(G.maxHp, G.hp+1);
+  saveBest();
+  ui.resImg.src = v.img;
+  ui.resTitle.innerHTML = '逮捕成功<small>'+v.name+' · '+v.tag+'</small>';
+  ui.resSub.textContent = '';
+  const accTxt = (r.acc*100).toFixed(0)+'%';
+  ui.resRows.innerHTML =
+    '<div class="res-row"><span>基础悬赏</span><b>'+fmt(r.base)+' 金</b></div>'+
+    '<div class="res-row"><span>答题准确率 '+accTxt+'</span><b>x'+r.mult.toFixed(2)+'</b></div>'+
+    '<div class="res-row"><span>线索收益</span><b>+'+fmt(G.clue)+' 金</b></div>'+
+    '<div class="res-row"><span>最高连击 x'+G.maxCombo+'</span><b>+'+(r.comboBonus*100).toFixed(0)+'%</b></div>'+
+    '<div class="res-row total"><span>本场实发</span><b>'+fmt(r.total)+' 金</b></div>';
+  const nextLv = Math.min(3, G.level+1);
+  ui.resNote.innerHTML = '本轮累计赏金 <b style="color:#ffcf5c">'+fmt(G.bounty)+'</b> 金 · 已逮捕 '+G.caught+' 人 · 体力恢复 1 点'+
+    (G.level<3?'<br>下一位通缉犯危险等级：<b style="color:#ff7a92">Lv.'+nextLv+'</b>':'<br>已进入最高危险等级，追缉速度继续提升');
+  G.mode = 'result';
+  hideOverlays();
+  ui.result.classList.remove('hidden');
+  notifyHost(true);
+  updateHUD();
+}
+
+function nextVillain(){
+  G.level = Math.min(3, G.level+1);
+  G.villain = pickVillain(G.level);
+  showPoster();
+}
+
+function pickVillain(level){
+  let pool = VILLAINS.filter(v=>v.lv===level && (!G.villain || v.name!==G.villain.name));
+  if(!pool.length) pool = VILLAINS.filter(v=>v.lv===level);
+  return pick(pool);
+}
+
+/* ============================================================
+   12. 流程
+   ============================================================ */
+function startRun(){
+  G.paused = false;
+  G.hp = G.maxHp;
+  G.bounty = 0;
+  G.caught = 0;
+  G.level = 1;
+  G.combo = 0; G.maxCombo = 0;
+  G.runQ = 0; G.runQc = 0;
+  G.shake = 0; G.flash = 0;
+  G.villain = pickVillain(1);
+  SFX.init();
+  showPoster();
+}
+
+function showPoster(){
+  G.mode = 'poster';
+  const v = G.villain;
+  const im = getVillainImg(v);
+  ui.posterImg.src = v.img;
+  ui.posterName.textContent = v.name;
+  ui.posterTag.textContent = v.tag + ' · 在逃';
+  ui.posterLv.textContent = '危险等级 Lv.'+v.lv+' / 3';
+  ui.posterBounty.textContent = fmt(v.bounty);
+  showScreen(ui.poster);
+  ui.hud.classList.add('hidden');
+  ui.quiz.classList.add('hidden');
+  notifyHost(true);
+  preloadVillain(v);
+  clearTimeout(showPoster._tm);
+  showPoster._tm = setTimeout(()=>{ if(G.mode==='poster') beginChase(); }, 2100);
+}
+
+function beginChase(){
+  if(G.mode !== 'poster') return;
+  clearTimeout(showPoster._tm);
+  const v = G.villain;
+  G.mode = 'run';
+  G.t = 0;
+  G.gap = 80;
+  G.speed = (DIFF[v.lv]||DIFF[1]).speed + G.caught*12;
+  G.clue = 0;
+  G.combo = 0; G.maxCombo = 0;
+  G.intel = 0; G.dashCd = 0;
+  G.chaseQ = 0; G.chaseQc = 0;
+  G.obstacles = []; G.coins = []; G.orbs = []; G.particles = []; G.floats = [];
+  G.bullets = []; G.enemyShots = []; G.showdown = null;
+  G.player = {x:0, y:groundY-PH, vy:0, onGround:true, airJump:1, invuln:0};
+  G.cam = G.player.x - pScreenX;
+  G.spawnX = 980;
+  G.nextQuiz = G.t + 2.4;
+  G.quiz = null; G.pendingDuel = false; G.duel = null;
+  G.lastOrb = 1.0; G.stumble = 0; G.dash = 0;
+  G.villainStun = 0; G.villainBubble = null; G.throwAnim = 0;
+  canvas.style.cursor = 'default';
+  ui.bossbar.classList.add('hidden');
+  ui.hud.classList.remove('hidden');
+  hideOverlays();
+  ui.avatar.src = v.img;
+  ui.name.textContent = v.name;
+  ui.meta.innerHTML = '危险等级 <b>Lv.'+v.lv+'</b> · 悬赏 '+fmt(v.bounty);
+  buildHearts();
+  updateHUD();
+  showBanner('追缉开始：集齐 5 份情报，逼他进入枪战', 'ok', 2400);
+  notifyHost(true);
+}
+
+function failRun(reason){
+  if(G.mode === 'over') return;
+  G.mode = 'over';
+  G.lastFail = reason;
+  G.quiz = null;
+  G.bullets = []; G.enemyShots = [];
+  ui.quiz.classList.add('hidden');
+  ui.hud.classList.add('hidden');
+  ui.bossbar.classList.add('hidden');
+  canvas.style.cursor = 'default';
+  saveBest();
+  ui.overIco.textContent = '!';
+  ui.overTitle.textContent = '追 捕 失 败';
+  ui.overSub.textContent = reason;
+  ui.ovCaught.textContent = G.caught;
+  ui.ovBounty.textContent = fmt(G.bounty);
+  ui.ovAcc.textContent = (G.runQ ? Math.round(G.runQc/G.runQ*100) : 0)+'%';
+  ui.overNote.innerHTML = '本轮共逮捕 '+G.caught+' 人'+(G.best?(' · 历史最高赏金 '+fmt(G.best)+' 金'):'');
+  showScreen(ui.over);
+  notifyHost(false);
+}
+
+function endRun(){
+  G.mode = 'over';
+  G.quiz = null;
+  G.bullets = []; G.enemyShots = [];
+  ui.quiz.classList.add('hidden');
+  ui.hud.classList.add('hidden');
+  ui.bossbar.classList.add('hidden');
+  canvas.style.cursor = 'default';
+  saveBest();
+  ui.overIco.textContent = '★';
+  ui.overTitle.textContent = '收 工 结 算';
+  ui.overSub.textContent = '今晚的追缉到此为止';
+  ui.ovCaught.textContent = G.caught;
+  ui.ovBounty.textContent = fmt(G.bounty);
+  ui.ovAcc.textContent = (G.runQ ? Math.round(G.runQc/G.runQ*100) : 0)+'%';
+  ui.overNote.innerHTML = (G.best?('历史最高赏金 '+fmt(G.best)+' 金'):'继续追缉可以刷新纪录');
+  showScreen(ui.over);
+  notifyHost(false);
+}
+
+function backToTitle(){
+  G.mode = 'title';
+  G.paused = false;
+  G.quiz = null;
+  G.bullets = []; G.enemyShots = [];
+  ui.quiz.classList.add('hidden');
+  ui.hud.classList.add('hidden');
+  ui.bossbar.classList.add('hidden');
+  canvas.style.cursor = 'default';
+  ui.best.textContent = fmt(G.best);
+  showScreen(ui.title);
+  notifyHost(false);
+}
+
+function saveBest(){
+  if(G.bounty > G.best){
+    G.best = G.bounty;
+    try{ localStorage.setItem('wanted_night_best', String(G.best)); }catch(e){}
+  }
+}
+function loadBest(){
+  try{ G.best = parseInt(localStorage.getItem('wanted_night_best')||'0',10) || 0; }catch(e){ G.best = 0; }
+}
+
+/* ============================================================
+   13. HUD / 提示
+   ============================================================ */
+function buildHearts(){
+  let html = '';
+  for(let i=0;i<G.maxHp;i++) html += '<span'+(i<G.hp?'':' class="off"')+'>♥</span>';
+  ui.hearts.innerHTML = html;
+}
+function updateHUD(){
+  const duel = G.mode==='duel' || G.mode==='arrest';
+  const armor = G.duel ? G.duel.armor : 0;
+  if(duel){
+    ui.distLabel.textContent = '剩余护盾';
+    ui.dist.textContent = armor+' / 3';
+    ui.distBar.style.width = (armor/3*100).toFixed(1)+'%';
+    ui.distBar.style.display = 'none';
+    if(ui.distBar.parentElement) ui.distBar.parentElement.style.display = 'none';
+    ui.intel.textContent = '枪战对决';
+    if(ui.intel && ui.intel.parentElement) ui.intel.parentElement.classList.add('hidden');
+  } else {
+    const fill = clamp((100-G.gap)/97, 0, 1);
+    ui.distLabel.textContent = '追缉距离';
+    ui.dist.textContent = Math.max(0, Math.round(G.gap))+'m';
+    ui.distBar.style.width = (fill*100).toFixed(1)+'%';
+    ui.distBar.style.display = 'block';
+    if(ui.distBar.parentElement) ui.distBar.parentElement.style.display = 'block';
+    ui.intel.textContent = G.intel+' / '+G.intelNeed;
+    if(ui.intel && ui.intel.parentElement) ui.intel.parentElement.classList.remove('hidden');
+  }
+  ui.bounty.textContent = fmt(G.bounty);
+  ui.combo.textContent = '连击 '+G.combo;
+  ui.combo.classList.toggle('on', G.combo>0);
+  if(ui.pips){
+    let pips='';
+    if(duel){
+      for(let i=0;i<3;i++) pips += '<i class="'+(i<armor?'on':'')+'"></i>';
+    } else {
+      for(let i=0;i<G.intelNeed;i++) pips += '<i class="'+(i<G.intel?'on':'')+'"></i>';
+    }
+    ui.pips.innerHTML = pips;
+  }
+  if(ui.dashBar){
+    const ready = G.dashCd<=0 ? 1 : clamp(1-G.dashCd/2.4,0,1);
+    ui.dashBar.style.transform = 'scaleX('+ready.toFixed(2)+')';
+  }
+  const on = ui.hearts.querySelectorAll('span:not(.off)').length;
+  if(on !== G.hp){
+    const nodes = ui.hearts.querySelectorAll('span');
+    nodes.forEach((n,i)=> n.classList.toggle('off', i>=G.hp));
+  }
+}
+let bannerTm = null;
+function showBanner(text, kind, ms){
+  const b = ui.banner;
+  b.textContent = text;
+  b.className = 'banner show '+(kind||'');
+  clearTimeout(bannerTm);
+  bannerTm = setTimeout(()=>{ b.className = 'banner'; }, ms||1600);
+}
+
+/* ============================================================
+   14. 粒子 / 飘字
+   ============================================================ */
+function spawnDust(n){
+  const p = G.player;
+  for(let i=0;i<(n||1);i++){
+    G.particles.push({x:pScreenX+rnd(-10,10), y:groundY-2, vx:rnd(-40,-120), vy:rnd(-30,-90), life:rnd(.2,.45), max:.45, r:rnd(2,5), c:'rgba(150,190,220,.5)', g:20});
+  }
+}
+function spawnBurst(x,y,color,n){
+  for(let i=0;i<n;i++){
+    const a = rnd(0,TAU), sp = rnd(60,260);
+    G.particles.push({x, y, vx:Math.cos(a)*sp, vy:Math.sin(a)*sp-60, life:rnd(.35,.8), max:.8, r:rnd(2,5), c:color, g:220});
+  }
+}
+function updateParticles(dt){
+  for(const p of G.particles){
+    p.life -= dt;
+    p.x += p.vx*dt; p.y += p.vy*dt;
+    p.vy += (p.g||0)*dt;
+  }
+  G.particles = G.particles.filter(p=>p.life>0);
+}
+function addFloat(text, x, y, color, size){
+  G.floats.push({text, x, y, color:color||'#fff', size:size||14, life:1.0, max:1.0});
+}
+function updateFloats(dt){
+  for(const f of G.floats){ f.life -= dt; f.y -= dt*46; }
+  G.floats = G.floats.filter(f=>f.life>0);
+}
+
+/* ============================================================
+   15. 坐标
+   ============================================================ */
+function villainScreenX(){
+  const maxX = W - 54;
+  const minX = pScreenX + 84;
+  const t = clamp(G.gap/100, 0, 1);
+  return clamp(minX + t*(maxX-minX), minX, maxX);
+}
+function duelVillainX(){ return PORTRAIT() ? W*0.70 : W*0.64; }
+
+/* ============================================================
+   16. 渲染
+   ============================================================ */
+function render(){
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+  ctx.clearRect(0,0,W,H);
+  const cam = G.cam;
+  const shakeX = G.shake>0 ? (Math.random()-.5)*G.shake*16 : 0;
+  const shakeY = G.shake>0 ? (Math.random()-.5)*G.shake*12 : 0;
+
+  drawSky();
+  drawStars();
+  drawMoon();
+  drawSkyline(cam, 0.10, bg.far, groundY+26, 'rgba(8,16,28,.92)', false);
+  drawSkyline(cam, 0.26, bg.mid, groundY+6, '#0a1c2c', true);
+  drawGround(cam);
+
+  ctx.save();
+  ctx.translate(shakeX, shakeY);
+  drawLamps(cam);
+  drawObstacles(cam);
+  drawCoins(cam);
+  drawVillain();
+  drawPlayer();
+  if(G.mode==='duel' || G.mode==='arrest') drawShowdownFx();
+  drawOrbs();
+  drawParticles();
+  if(G.mode==='duel' || G.mode==='arrest') drawDuelFocus();
+  ctx.restore();
+
+  drawRain();
+  drawSpeedLines();
+  drawVignette();
+  drawFloats();
+  if(G.mode==='duel') drawCrosshair();
+
+  if(G.flash>0) drawFlash();
+  if(G.duelBanner>0 && G.mode==='duel') drawDuelBanner();
+}
+
+function drawSky(){
+  const g = ctx.createLinearGradient(0,0,0,H);
+  g.addColorStop(0,'#04070f');
+  g.addColorStop(0.45,'#08182a');
+  g.addColorStop(0.72,'#0d2436');
+  g.addColorStop(1,'#050a12');
+  ctx.fillStyle = g;
+  ctx.fillRect(0,0,W,H);
+}
+
+function drawStars(){
+  for(const s of bg.stars){
+    const tw = 0.55 + Math.sin(G.t*1.6 + s.p)*0.35;
+    ctx.fillStyle = 'rgba(190,225,255,'+(tw*0.7).toFixed(2)+')';
+    ctx.fillRect(s.x*W, s.y*H*0.62, s.r, s.r);
+  }
+}
+
+function drawMoon(){
+  const mx = W*0.78, my = H*0.16, r = Math.min(W,H)*0.065;
+  const g = ctx.createRadialGradient(mx,my,r*0.3, mx,my,r*2.6);
+  g.addColorStop(0,'rgba(190,225,255,.20)');
+  g.addColorStop(1,'rgba(190,225,255,0)');
+  ctx.fillStyle = g;
+  ctx.beginPath(); ctx.arc(mx,my,r*2.6,0,TAU); ctx.fill();
+  ctx.fillStyle = 'rgba(226,240,255,.92)';
+  ctx.beginPath(); ctx.arc(mx,my,r,0,TAU); ctx.fill();
+  ctx.fillStyle = 'rgba(150,180,210,.35)';
+  ctx.beginPath(); ctx.arc(mx-r*0.25,my-r*0.18,r*0.22,0,TAU); ctx.fill();
+  ctx.beginPath(); ctx.arc(mx+r*0.28,my+r*0.22,r*0.15,0,TAU); ctx.fill();
+}
+
+function drawSkyline(cam, k, list, baseY, color, windows){
+  const tile = bg.tile;
+  const off = -((cam*k) % tile);
+  for(let rep=0; rep<2; rep++){
+    const startX = off + rep*tile;
+    for(const b of list){
+      const x = startX + b.x;
+      if(x > W+80 || x + b.w < -80) continue;
+      ctx.fillStyle = color;
+      ctx.fillRect(x, baseY-b.h, b.w, b.h);
+      if(windows){
+        ctx.fillStyle = 'rgba(120,220,255,.07)';
+        const w = 4, h = 6, gx = 11, gy = 16;
+        for(let yy = baseY-b.h+12; yy < baseY-10; yy += gy){
+          for(let xx = x+8; xx < x+b.w-6; xx += gx){
+            if((Math.floor(xx/7)+Math.floor(yy/9)) % 5 < 2){
+              ctx.fillStyle = ((Math.floor(xx+yy))%17===0) ? 'rgba(255,190,120,.5)' : 'rgba(120,220,255,.22)';
+              ctx.fillRect(xx, yy, w, h);
+            }
+          }
+        }
+        if(b.neon){
+          ctx.fillStyle = 'rgba(255,59,92,.55)';
+          ctx.fillRect(x+6, baseY-b.h+18, 3, Math.min(44,b.h*0.3));
+        }
+      }
+      // 顶部轮廓灯
+      ctx.fillStyle = 'rgba(94,240,255,.10)';
+      ctx.fillRect(x, baseY-b.h, b.w, 1.5);
+    }
+  }
+}
+
+function drawGround(cam){
+  // 人行道
+  ctx.fillStyle = '#0a1420';
+  ctx.fillRect(0, groundY, W, H-groundY);
+  // 霓虹地平线
+  const g = ctx.createLinearGradient(0,groundY-4,0,groundY+18);
+  g.addColorStop(0,'rgba(94,240,255,.55)');
+  g.addColorStop(.4,'rgba(94,240,255,.16)');
+  g.addColorStop(1,'rgba(94,240,255,0)');
+  ctx.fillStyle = g;
+  ctx.fillRect(0,groundY-4,W,22);
+  // 车道虚线（滚动）
+  ctx.fillStyle = 'rgba(255,207,92,.20)';
+  const gap = 92;
+  const off = -((cam) % gap);
+  for(let x=off; x<W; x+=gap) ctx.fillRect(x, groundY+52, 40, 3);
+  // 湿地反光
+  ctx.fillStyle = 'rgba(94,240,255,.05)';
+  for(let i=0;i<7;i++){
+    const x = ((i*157 - cam*0.5) % (W+200) + W+200) % (W+200) - 100;
+    ctx.fillRect(x, groundY+18+i%3*14, 60, 2);
+  }
+}
+
+function drawLamps(cam){
+  const gap = 300;
+  const start = Math.floor(cam/gap)*gap;
+  for(let x=start; x < cam+W+gap; x+=gap){
+    const sx = x-cam;
+    if(sx < -60 || sx > W+60) continue;
+    // 灯柱
+    ctx.fillStyle = 'rgba(30,48,68,.9)';
+    ctx.fillRect(sx, groundY-132, 4, 132);
+    ctx.fillRect(sx-8, groundY-136, 20, 5);
+    // 光晕
+    const lg = ctx.createRadialGradient(sx+6,groundY-136,2, sx+6,groundY-136,80);
+    lg.addColorStop(0,'rgba(255,210,140,.30)');
+    lg.addColorStop(1,'rgba(255,210,140,0)');
+    ctx.fillStyle = lg;
+    ctx.beginPath(); ctx.arc(sx+6,groundY-136,80,0,TAU); ctx.fill();
+    ctx.fillStyle = 'rgba(255,225,170,.95)';
+    ctx.fillRect(sx+2, groundY-140, 8, 4);
+  }
+}
+
+function drawObstacles(cam){
+  for(const o of G.obstacles){
+    const sx = o.x - cam;
+    if(sx > W+120 || sx+o.w < -120) continue;
+    if(o.pit){
+      ctx.fillStyle = 'rgba(0,0,0,.85)';
+      ctx.beginPath(); ctx.ellipse(sx+o.w/2, groundY+6, o.w/2, 12, 0, 0, TAU); ctx.fill();
+      ctx.strokeStyle = 'rgba(255,59,92,.6)';
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.ellipse(sx+o.w/2, groundY+4, o.w/2, 11, 0, 0, TAU); ctx.stroke();
+      ctx.fillStyle = 'rgba(255,59,92,.9)';
+      for(let i=0;i<3;i++){
+        const px = sx+12+i*22;
+        ctx.beginPath(); ctx.moveTo(px-4,groundY-4); ctx.lineTo(px+4,groundY-4); ctx.lineTo(px,groundY-14); ctx.closePath(); ctx.fill();
+      }
+      continue;
+    }
+    const y = groundY-o.h;
+    // 影子
+    ctx.fillStyle = 'rgba(0,0,0,.35)';
+    ctx.beginPath(); ctx.ellipse(sx+o.w/2, groundY+3, o.w*0.6, 6, 0,0,TAU); ctx.fill();
+    if(o.type==='crate' || o.type==='tower'){
+      ctx.fillStyle = '#7a5230';
+      ctx.fillRect(sx,y,o.w,o.h);
+      ctx.fillStyle = '#9a6b3f';
+      ctx.fillRect(sx+3,y+3,o.w-6,o.h-6);
+      ctx.strokeStyle = 'rgba(50,30,16,.8)'; ctx.lineWidth=2;
+      ctx.beginPath(); ctx.moveTo(sx+4,y+4); ctx.lineTo(sx+o.w-4,y+o.h-4); ctx.moveTo(sx+o.w-4,y+4); ctx.lineTo(sx+4,y+o.h-4); ctx.stroke();
+      if(o.type==='tower'){
+        // 高箱：多两道箍带，视觉上明确“这是更高的障碍”
+        for(let h=0.3;h<0.9;h+=0.3){
+          ctx.fillStyle='rgba(40,24,12,.55)';
+          ctx.fillRect(sx+4, y+o.h*h, o.w-8, 5);
+        }
+        ctx.fillStyle='rgba(255,207,92,.75)';
+        ctx.fillRect(sx+4, y+4, o.w-8, 5);
+      }
+      ctx.fillStyle = 'rgba(255,59,92,.85)';
+      ctx.fillRect(sx, y+o.h*0.42, o.w, 5);
+    } else if(o.type==='barrier'){
+      ctx.fillStyle = '#20242c';
+      ctx.fillRect(sx, y, o.w, o.h);
+      ctx.fillStyle = 'rgba(255,207,92,.85)';
+      for(let i=0;i<o.w;i+=18) ctx.fillRect(sx+i, y+6, 9, o.h-12);
+      ctx.fillStyle = 'rgba(255,59,92,.9)';
+      ctx.fillRect(sx, y, o.w, 3);
+      ctx.fillStyle = 'rgba(255,59,92,.75)';
+      ctx.fillRect(sx-2, y-3, 6, 4);
+      ctx.fillRect(sx+o.w-4, y-3, 6, 4);
+    } else if(o.type==='bin'){
+      ctx.fillStyle = '#1d3a3a';
+      ctx.fillRect(sx+3,y+4,o.w-6,o.h-4);
+      ctx.fillStyle = '#2b5c56';
+      ctx.fillRect(sx+3,y+4,o.w-6,o.h-10);
+      ctx.fillStyle = '#357a70';
+      ctx.fillRect(sx, y, o.w, 8);
+      ctx.strokeStyle='rgba(94,240,255,.25)'; ctx.lineWidth=1;
+      ctx.strokeRect(sx+3,y+4,o.w-6,o.h-4);
+      ctx.fillStyle='rgba(94,240,255,.5)';
+      ctx.fillRect(sx+o.w/2-5, y+o.h*0.35, 10, 3);
+    }
+  }
+}
+
+function drawCoins(cam){
+  for(const k of G.coins){
+    if(k.taken) continue;
+    const sx = k.x - cam;
+    if(sx > W+40 || sx < -40) continue;
+    const y = k.y + Math.sin(G.t*3 + k.cb)*4;
+    const glow = ctx.createRadialGradient(sx,y,1, sx,y,18);
+    glow.addColorStop(0,'rgba(255,207,92,.45)');
+    glow.addColorStop(1,'rgba(255,207,92,0)');
+    ctx.fillStyle = glow;
+    ctx.beginPath(); ctx.arc(sx,y,18,0,TAU); ctx.fill();
+    ctx.strokeStyle = '#ffcf5c'; ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.arc(sx,y,8,0,TAU); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(sx+6,y+6); ctx.lineTo(sx+11,y+11); ctx.stroke();
+    ctx.fillStyle = 'rgba(255,207,92,.85)';
+    ctx.beginPath(); ctx.arc(sx,y,3,0,TAU); ctx.fill();
+  }
+}
+
+function drawPlayer(){
+  if(G.mode==='title' || G.mode==='poster' || G.mode==='result' || G.mode==='over') return;
+  const p = G.player;
+  const cx = (G.mode==='duel' && G.showdown) ? G.showdown.px : pScreenX;
+  const feet = p.y + PH;
+  // 影子
+  if(p.onGround){
+    ctx.fillStyle = 'rgba(0,0,0,.45)';
+    ctx.beginPath(); ctx.ellipse(cx, groundY+4, 24, 7, 0,0,TAU); ctx.fill();
+  }
+  ctx.save();
+  ctx.translate(cx, feet);
+  const bob = p.onGround && G.mode==='run' ? Math.sin(G.t*15)*2.5 : 0;
+  const tilt = p.onGround ? -0.05 : clamp(p.vy/1400, -0.22, 0.26);
+  ctx.rotate(tilt);
+  const h = 70, w = h*(256/383);
+  if(p.invuln>0 && Math.floor(p.invuln*14)%2===0) ctx.globalAlpha = 0.4;
+  // 冲刺白影
+  if(G.dash>0){
+    ctx.globalAlpha = 0.35;
+    ctx.drawImage(PLAYER_IMG, -w/2-18, -h+bob, w, h);
+    ctx.globalAlpha = 1;
+  }
+  if(PLAYER_IMG.complete && PLAYER_IMG.naturalWidth){
+    ctx.drawImage(PLAYER_IMG, -w/2, -h+bob, w, h);
+  } else {
+    ctx.fillStyle = '#5ef0ff';
+    ctx.fillRect(-w/2, -h+bob, w, h);
+  }
+  // 对决阶段：手中的手枪与枪口火光
+  if(G.mode==='duel' || G.mode==='arrest'){
+    const recoil = G.gunFlash > 0 ? -3 : 0;
+    ctx.save();
+    ctx.translate(10, -31+bob);
+    ctx.rotate(-0.04);
+    ctx.scale(0.78, 0.78);
+    ctx.translate(recoil, 0);
+    // 握把
+    ctx.fillStyle = '#141c28';
+    ctx.beginPath();
+    ctx.moveTo(1, -1); ctx.lineTo(8, -1); ctx.lineTo(9, 14); ctx.lineTo(3, 14); ctx.closePath(); ctx.fill();
+    // 套筒
+    ctx.fillStyle = '#263244';
+    ctx.beginPath();
+    ctx.moveTo(-3, -9); ctx.lineTo(26, -9); ctx.lineTo(28, -4); ctx.lineTo(-2, -4); ctx.closePath(); ctx.fill();
+    // 枪管
+    ctx.fillStyle = '#0f1622';
+    ctx.fillRect(24, -8, 8, 4);
+    // 高光与准星
+    ctx.fillStyle = '#5ef0ff';
+    ctx.fillRect(-1, -8, 20, 1.6);
+    ctx.fillStyle = '#ffcf5c';
+    ctx.fillRect(20, -11, 2, 2);
+    if(G.gunFlash > 0){
+      const mx = 32, my = -6, mr = 16;
+      const g = ctx.createRadialGradient(mx, my, 1, mx, my, mr);
+      g.addColorStop(0, 'rgba(255,255,255,.95)');
+      g.addColorStop(0.35, 'rgba(255,207,92,.85)');
+      g.addColorStop(1, 'rgba(255,120,40,0)');
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(mx, my, mr, 0, TAU); ctx.fill();
+      ctx.strokeStyle = 'rgba(255,207,92,.8)';
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(mx, my); ctx.lineTo(mx+14, my-3); ctx.stroke();
+    }
+    ctx.restore();
+  }
+  ctx.restore();
+}
+
+function drawVillain(){
+  if(!G.villain || G.mode==='title' || G.mode==='poster' || G.mode==='result' || G.mode==='over') return;
+  const img = cvsImg.villain;
+  let vx, vy, scale;
+  if(G.mode==='duel' || G.mode==='arrest'){
+    vx = G.showdown ? G.showdown.vx : duelVillainX();
+    scale = 1.15;
+  } else {
+    vx = villainScreenX();
+    const t = clamp(G.gap/100,0,1);
+    scale = 1.0 + (1-t)*0.18;
+  }
+  const h = 96*scale, w = h;
+  vy = groundY;
+  const bob = Math.sin(G.t*13)*3;
+  const stun = G.villainStun>0 ? Math.sin(G.t*40)*4 : 0;
+  // 红色光晕
+  const glow = ctx.createRadialGradient(vx,vy-50,4, vx,vy-50,70*scale);
+  glow.addColorStop(0,'rgba(255,59,92,.22)');
+  glow.addColorStop(1,'rgba(255,59,92,0)');
+  ctx.fillStyle = glow;
+  ctx.beginPath(); ctx.arc(vx,vy-50,70*scale,0,TAU); ctx.fill();
+  // 影子
+  ctx.fillStyle = 'rgba(0,0,0,.45)';
+  ctx.beginPath(); ctx.ellipse(vx, groundY+4, 30, 8, 0,0,TAU); ctx.fill();
+  ctx.save();
+  ctx.translate(vx+stun, vy);
+  const tilt = G.mode==='duel' ? 0.02 : (G.villainStun>0 ? 0.2 : -0.06);
+  ctx.rotate(tilt);
+  if(img && img.complete && img.naturalWidth){
+    ctx.drawImage(img, -w/2, -h+bob, w, h);
+  } else {
+    ctx.fillStyle = '#ff3b5c';
+    ctx.fillRect(-w/3, -h+bob, w*0.66, h);
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 18px sans-serif'; ctx.textAlign='center';
+    ctx.fillText('!', 0, -h/2+bob);
+  }
+  // 被定罪时闪红
+  if(G.villainStun>0 && G.mode==='run'){
+    ctx.globalAlpha = 0.35;
+    ctx.fillStyle = '#ff3b5c';
+    ctx.fillRect(-w/2, -h, w, h);
+    ctx.globalAlpha = 1;
+  }
+  ctx.restore();
+
+  // 距离标签 / 气泡
+  if(G.mode==='run'){
+    ctx.fillStyle = 'rgba(255,255,255,.65)';
+    ctx.font = 'bold 11px sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText('距离 '+Math.round(G.gap)+'m', vx, groundY-h-14);
+  }
+  if(G.villainBubble){
+    const txt = G.villainBubble.text;
+    const bw = Math.max(64, ctx.measureText(txt).width + 62);
+    const bx = clamp(vx, bw/2+6, W-bw/2-6), by = groundY-h-40;
+    ctx.fillStyle = 'rgba(8,15,28,.92)';
+    ctx.strokeStyle = 'rgba(255,59,92,.6)'; ctx.lineWidth = 1.5;
+    roundRect(bx-bw/2, by-27, bw, 30, 9, true);
+    ctx.fillStyle = '#ffd6de'; ctx.font = 'bold 13px sans-serif'; ctx.textAlign='center';
+    ctx.fillText(txt, bx, by-7);
+    ctx.beginPath(); ctx.moveTo(bx-6, by+3); ctx.lineTo(bx+6, by+3); ctx.lineTo(bx, by+11); ctx.closePath();
+    ctx.fillStyle = 'rgba(8,15,28,.92)'; ctx.fill();
+  }
+}
+
+function drawShowdownFx(){
+  const s = G.showdown;
+  if(!s) return;
+  const cx = s.vx, cy = groundY-58;
+
+  // 蓄力预警：红色虚线指向玩家
+  if(s.charge > 0){
+    ctx.save();
+    ctx.globalAlpha = 0.55 + Math.sin(G.t*40)*0.2;
+    ctx.strokeStyle = '#ff3b5c';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([9,7]);
+    ctx.beginPath();
+    ctx.moveTo(cx-30, groundY-62);
+    ctx.lineTo(s.aimX, s.aimY);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.beginPath(); ctx.arc(s.aimX, s.aimY, 9, 0, TAU); ctx.stroke();
+    ctx.restore();
+  }
+
+  // 护盾 / 弱点
+  if(s.open > 0){
+    const pulse = 0.7 + Math.sin(G.t*22)*0.3;
+    const g = ctx.createRadialGradient(cx,cy,4, cx,cy,34);
+    g.addColorStop(0,'rgba(255,207,92,'+(0.9*pulse)+')');
+    g.addColorStop(.45,'rgba(255,59,92,'+(0.45*pulse)+')');
+    g.addColorStop(1,'rgba(255,59,92,0)');
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(cx,cy,34,0,TAU); ctx.fill();
+    ctx.strokeStyle = 'rgba(255,207,92,.9)'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(cx,cy,11+Math.sin(G.t*16)*2,0,TAU); ctx.stroke();
+    ctx.fillStyle = '#ffe9a8';
+    ctx.beginPath(); ctx.arc(cx,cy,4,0,TAU); ctx.fill();
+  } else {
+    ctx.save();
+    ctx.globalAlpha = 0.55;
+    const g = ctx.createRadialGradient(cx,groundY-48,8, cx,groundY-48,78);
+    g.addColorStop(0,'rgba(94,240,255,.20)');
+    g.addColorStop(.65,'rgba(94,240,255,.10)');
+    g.addColorStop(1,'rgba(94,240,255,0)');
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(cx,groundY-48,78,0,TAU); ctx.fill();
+    ctx.strokeStyle = 'rgba(94,240,255,.75)';
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(cx, groundY-48, 60, Math.PI, TAU); ctx.stroke();
+    ctx.globalAlpha = 0.9;
+    for(let i=0;i<3;i++){
+      const ang = -Math.PI*0.75 + i*Math.PI*0.25 + Math.sin(G.t*3+i)*0.05;
+      ctx.fillStyle = 'rgba(160,240,255,.65)';
+      ctx.beginPath();
+      ctx.arc(cx+Math.cos(ang)*60, groundY-48+Math.sin(ang)*60, 2.5, 0, TAU);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+  if(s.block > 0){
+    ctx.strokeStyle = 'rgba(159,216,255,'+clamp(s.block/0.28,0,1)+')';
+    ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(cx, groundY-48, 62, Math.PI, TAU); ctx.stroke();
+  }
+
+  // 敌方弹幕
+  for(const b of G.enemyShots){
+    const g = ctx.createRadialGradient(b.x,b.y,1, b.x,b.y,18);
+    g.addColorStop(0,'rgba(255,220,150,.9)');
+    g.addColorStop(.35,'rgba(255,59,92,.75)');
+    g.addColorStop(1,'rgba(255,59,92,0)');
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(b.x,b.y,18,0,TAU); ctx.fill();
+    ctx.fillStyle = '#fff3d0';
+    ctx.beginPath(); ctx.arc(b.x,b.y,4,0,TAU); ctx.fill();
+  }
+
+  // 玩家曳光弹
+  for(const b of G.bullets){
+    if(b.trail && b.trail.length>1){
+      ctx.strokeStyle = 'rgba(255,207,92,.55)';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(b.trail[0].x, b.trail[0].y);
+      for(const t of b.trail) ctx.lineTo(t.x, t.y);
+      ctx.stroke();
+    }
+    const g = ctx.createRadialGradient(b.x,b.y,1, b.x,b.y,13);
+    g.addColorStop(0,'rgba(255,255,230,.95)');
+    g.addColorStop(.4,'rgba(255,207,92,.7)');
+    g.addColorStop(1,'rgba(255,207,92,0)');
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(b.x,b.y,13,0,TAU); ctx.fill();
+    ctx.fillStyle = '#fffbe0';
+    ctx.beginPath(); ctx.arc(b.x,b.y,2.5,0,TAU); ctx.fill();
+  }
+}
+
+function drawCrosshair(){
+  const x = G.mouse.x, y = G.mouse.y;
+  const over = G.showdown && Math.abs(x-G.showdown.vx)<52 && y>groundY-110 && y<groundY;
+  ctx.strokeStyle = over ? '#ff3b5c' : 'rgba(255,207,92,.95)';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.arc(x,y,11,0,TAU); ctx.stroke();
+  ctx.beginPath(); ctx.arc(x,y,2,0,TAU); ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(x-17,y); ctx.lineTo(x-13,y);
+  ctx.moveTo(x+13,y); ctx.lineTo(x+17,y);
+  ctx.moveTo(x,y-17); ctx.lineTo(x,y-13);
+  ctx.moveTo(x,y+13); ctx.lineTo(x,y+17);
+  ctx.stroke();
+  if(over){
+    ctx.fillStyle = 'rgba(255,59,92,.9)';
+    ctx.beginPath(); ctx.arc(x,y,2.5,0,TAU); ctx.fill();
+  }
+}
+
+
+function roundRect(x,y,w,h,r,stroke){
+  ctx.beginPath();
+  ctx.moveTo(x+r,y);
+  ctx.arcTo(x+w,y,x+w,y+h,r);
+  ctx.arcTo(x+w,y+h,x,y+h,r);
+  ctx.arcTo(x,y+h,x,y,r);
+  ctx.arcTo(x,y,x+w,y,r);
+  ctx.closePath();
+  if(stroke) ctx.stroke(); else ctx.fill();
+}
+
+function drawOrbs(){
+  for(const o of G.orbs){
+    const glow = ctx.createRadialGradient(o.x,o.y,2, o.x,o.y,22);
+    glow.addColorStop(0,'rgba(255,120,150,.75)');
+    glow.addColorStop(1,'rgba(255,59,92,0)');
+    ctx.fillStyle = glow;
+    ctx.beginPath(); ctx.arc(o.x,o.y,22,0,TAU); ctx.fill();
+    ctx.fillStyle = '#ff3b5c';
+    ctx.beginPath(); ctx.arc(o.x,o.y,9,0,TAU); ctx.fill();
+    ctx.fillStyle = '#ffd6de';
+    ctx.beginPath(); ctx.arc(o.x-2,o.y-2,3,0,TAU); ctx.fill();
+  }
+}
+
+function drawParticles(){
+  for(const p of G.particles){
+    const a = clamp(p.life/p.max,0,1);
+    ctx.globalAlpha = a;
+    ctx.fillStyle = p.c;
+    ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,TAU); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+}
+
+function drawFloats(){
+  ctx.textAlign = 'center';
+  for(const f of G.floats){
+    const a = clamp(f.life/f.max,0,1);
+    ctx.globalAlpha = a;
+    ctx.fillStyle = f.color;
+    ctx.font = 'bold '+f.size+'px "Microsoft YaHei", sans-serif';
+    ctx.fillText(f.text, f.x, f.y);
+  }
+  ctx.globalAlpha = 1;
+}
+
+function drawDuelFocus(){
+  ctx.fillStyle = 'rgba(4,7,14,.10)';
+  ctx.fillRect(0,0,W,H);
+  // 聚光
+  const cx = W*0.5, cy = groundY-40, r = Math.max(W,H)*0.55;
+  const g = ctx.createRadialGradient(cx,cy,10, cx,cy,r);
+  g.addColorStop(0,'rgba(255,207,92,.14)');
+  g.addColorStop(.5,'rgba(4,7,14,0)');
+  g.addColorStop(1,'rgba(4,7,14,.48)');
+  ctx.fillStyle = g;
+  ctx.fillRect(0,0,W,H);
+  // 地面警示线
+  ctx.fillStyle = 'rgba(255,59,92,.5)';
+  ctx.fillRect(0, groundY+2, W, 1.5);
+}
+
+function drawDuelBanner(){
+  const a = clamp(G.duelBanner/2.2, 0, 1);
+  ctx.globalAlpha = a;
+  ctx.fillStyle = '#ff3b5c';
+  ctx.font = '900 '+Math.round(Math.min(W*0.11, 64))+'px "Microsoft YaHei", sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('最 后 对 决', W/2, H*0.30);
+  ctx.fillStyle = 'rgba(255,255,255,.85)';
+  ctx.font = 'bold 14px "Microsoft YaHei", sans-serif';
+  ctx.fillText('鼠标瞄准射击 · 击碎 3 层护盾完成逮捕', W/2, H*0.30+30);
+  ctx.globalAlpha = 1;
+}
+
+function drawSpeedLines(){
+  if(G.dash<=0) return;
+  const a = clamp(G.dash/0.45,0,1)*0.35;
+  ctx.strokeStyle = 'rgba(180,240,255,'+a.toFixed(2)+')';
+  ctx.lineWidth = 1.5;
+  for(let i=0;i<12;i++){
+    const y = 70 + i*((groundY-90)/12);
+    const x = ((G.t*900 + i*173) % (W+160)) - 80;
+    const len = 40 + (i%4)*22;
+    ctx.beginPath(); ctx.moveTo(x,y); ctx.lineTo(x+len,y); ctx.stroke();
+  }
+}
+
+function drawRain(){
+  ctx.strokeStyle = 'rgba(150,200,240,.20)';
+  ctx.lineWidth = 1;
+  for(const r of bg.rain){
+    r.y += r.v*0.02;
+    if(r.y > 1){ r.y = 0; r.x = Math.random(); }
+    r.x -= 0.002;
+    if(r.x < 0) r.x = 1;
+    const x = r.x*W, y = r.y*H;
+    ctx.beginPath(); ctx.moveTo(x,y); ctx.lineTo(x-3, y+r.len); ctx.stroke();
+  }
+}
+
+function drawVignette(){
+  const g = ctx.createRadialGradient(W/2,H*0.45,Math.min(W,H)*0.25, W/2,H*0.5,Math.max(W,H)*0.78);
+  g.addColorStop(0,'rgba(0,0,0,0)');
+  g.addColorStop(1,'rgba(0,0,0,.55)');
+  ctx.fillStyle = g;
+  ctx.fillRect(0,0,W,H);
+}
+
+function drawFlash(){
+  const a = clamp(G.flash,0,1);
+  ctx.fillStyle = 'rgba(255,59,92,'+(a*0.32).toFixed(3)+')';
+  ctx.fillRect(0,0,W,H);
+}
+
+/* ============================================================
+   17. 输入
+   ============================================================ */
+window.addEventListener('keydown', e=>{
+  if(e.key === 'Escape'){
+    if(G.mode==='run' || G.mode==='duel'){ togglePause(); return; }
+  }
+  if(G.paused) return;
+  const lower = e.key.toLowerCase();
+  G.keys[lower] = true;
+  if(e.key === 'Shift'){ e.preventDefault(); dash(); return; }
+  if(e.key === ' ' || e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W'){
+    e.preventDefault();
+    jump();
+    return;
+  }
+  if(G.quiz && !G.quiz.answered){
+    const q = G.quiz;
+    const key = e.key.toUpperCase();
+    let idx = -1;
+    if(key>='1' && key<='4') idx = parseInt(key,10)-1;
+    else if(key>='A' && key<='D') idx = key.charCodeAt(0)-65;
+    if(idx>=0 && idx<4){ e.preventDefault(); answerQuiz(idx); }
+  }
+});
+window.addEventListener('keyup', e=>{
+  G.keys[e.key.toLowerCase()] = false;
+});
+
+function canvasPoint(e){
+  const r = canvas.getBoundingClientRect();
+  return {x:(e.clientX-r.left)*(W/r.width), y:(e.clientY-r.top)*(H/r.height)};
+}
+
+canvas.addEventListener('pointermove', e=>{
+  if(G.mode==='duel'){
+    const pt = canvasPoint(e);
+    G.mouse.x = pt.x; G.mouse.y = pt.y;
+  }
+});
+
+canvas.addEventListener('pointerdown', e=>{
+  e.preventDefault();
+  SFX.init();
+  if(G.mode==='run'){ jump(); return; }
+  if(G.mode==='duel'){
+    const pt = canvasPoint(e);
+    shootAt(pt.x, pt.y);
+  }
+});
+canvas.addEventListener('contextmenu', e=>e.preventDefault());
+
+$('btnPause').onclick = ()=>{ togglePause(); };
+$('btnResume').onclick = ()=>{ togglePause(); };
+$('btnRestart').onclick = ()=>{ G.paused = false; startRun(); };
+$('btnQuit').onclick = ()=>{
+  if(window.parent && window.parent!==window){
+    try{ window.parent.postMessage({type:'wanted-close'}, '*'); }catch(e){}
+  } else {
+    backToTitle();
+  }
+};
+
+$('btnStart').onclick = ()=>{ SFX.init(); startRun(); };
+$('btnPosterGo').onclick = ()=>{ if(G.mode==='poster'){ clearTimeout(showPoster._tm); beginChase(); } };
+$('btnNext').onclick = ()=>{ nextVillain(); };
+$('btnStop').onclick = ()=>{ endRun(); };
+$('btnAgain').onclick = ()=>{ SFX.init(); startRun(); };
+$('btnHome').onclick = ()=>{ backToTitle(); };
+
+function togglePause(){
+  if(G.mode!=='run' && G.mode!=='duel') return;
+  G.paused = !G.paused;
+  if(G.paused){
+    showScreen(ui.pause);
+  } else {
+    hideOverlays();
+    lastTs = 0;
+  }
+}
+
+function notifyHost(on){
+  if(window.parent && window.parent!==window){
+    try{ window.parent.postMessage({type:'wanted-chase', on:!!on}, '*'); }catch(e){}
+  }
+}
+
+/* ============================================================
+   18. 启动
+   ============================================================ */
+layout();
+loadBest();
+ui.best.textContent = fmt(G.best);
+buildHearts();
+showScreen(ui.title);
+requestAnimationFrame(frame);
+
+// 调试模式：页面报错直接显示出来
+if(new URLSearchParams(location.search).get('debug')==='1'){
+  const dbg = $('dbg');
+  dbg.style.display = 'block';
+  window.onerror = (msg, src, line, col)=>{
+    dbg.textContent = 'ERR: '+msg+'\n'+(src||'')+':'+(line||'')+':'+(col||'');
+  };
+  window.__W = {G, startRun, beginChase, startDuel, askQuestion, answerQuiz, showResult, endRun, failRun, jump, dash, shootAt, updateBossHUD, groundY, PH, PW, W:()=>W, H:()=>H,
+    step:(dt,n)=>{ for(let i=0;i<(n||1);i++) update(dt||1/60); render(); }};
+}
+// 测试入口：?auto=1 直接开局
+if(new URLSearchParams(location.search).get('auto')==='1'){
+  setTimeout(()=>{ startRun(); }, 400);
+}
+})();
+</script>
+</body>
+</html>

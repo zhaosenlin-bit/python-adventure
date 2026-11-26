@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import * as Phaser from 'phaser';
 import { gameConfig } from '@/lib/game/config';
 import { installPhaserAudioGuard } from '@/lib/game/phaserAudioGuard';
-import { clearPhaserContainer, destroyPhaserGameSafely } from '@/lib/game/phaserLifecycle';
+import { clearStalePhaserCanvases, destroyPhaserGameSafely } from '@/lib/game/phaserLifecycle';
 
 export default function PhaserGame() {
   const gameRef = useRef<Phaser.Game | null>(null);
@@ -16,29 +16,22 @@ export default function PhaserGame() {
       return;
     }
 
+    // 捕获父容器：React StrictMode 的双挂载会先解绑 ref 再执行清理，
+    // 清理时读取 parentRef.current 只会拿到 null。
+    const parentElement = parentRef.current;
+
     try {
       installPhaserAudioGuard();
+      clearStalePhaserCanvases(parentElement);
       const shouldExposeDebugHandle =
         typeof window !== 'undefined' &&
         Boolean((window as Window & { __enableWorldDebug?: boolean }).__enableWorldDebug);
       const config = {
         ...gameConfig,
-        parent: parentRef.current,
+        parent: parentElement,
       };
 
-      // React StrictMode / Fast Refresh 会重复挂载本组件，上一轮遗留的 canvas
-      // 会一直占据父容器的流内空间，把新画布挤到可视区域之外（表现为全黑）。
-      // 创建新游戏前先清空容器。
-      clearPhaserContainer(parentRef.current);
-
       gameRef.current = new Phaser.Game(config);
-
-      // 兜底：确保容器里只剩当前游戏使用的 canvas。
-      parentRef.current.querySelectorAll('canvas').forEach((canvas) => {
-        if (canvas !== gameRef.current?.canvas) {
-          canvas.remove();
-        }
-      });
       if (process.env.NODE_ENV === 'development' || shouldExposeDebugHandle) {
         (window as Window & { __worldPhaserGame?: Phaser.Game | null }).__worldPhaserGame = gameRef.current;
       }
@@ -58,7 +51,7 @@ export default function PhaserGame() {
 
     return () => {
       const game = gameRef.current;
-      destroyPhaserGameSafely(game, parentRef.current);
+      destroyPhaserGameSafely(game, parentElement);
       if (game && gameRef.current === game) {
         gameRef.current = null;
       }

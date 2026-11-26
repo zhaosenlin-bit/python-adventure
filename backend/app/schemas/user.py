@@ -5,7 +5,7 @@ import re
 
 class UserRegister(BaseModel):
     username: str
-    email: EmailStr
+    email: Optional[EmailStr] = None
     password: str
 
     @field_validator('username')

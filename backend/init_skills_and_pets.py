@@ -299,3 +299,7 @@ if __name__ == "__main__":
 
 
 
+# 说明：旧版的宠物目录种子（base_stats / unlock_level 等字段）依赖的是
+# 「宠物模板表」结构；Pet 模型已经改成玩家实例（user_id / pet_style / is_egg /
+# hatch_progress），再灌目录行会直接写坏数据，所以 init_pets() 下面改为跳过，
+# 宠物图鉴目录由前端的 EvolutionPokedex 维护。

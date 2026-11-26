@@ -96,6 +96,24 @@ export default function WorldPage() {
     // 新 PVP 三轮制系统
     const [showNewPvp, setShowNewPvp] = useState(false);
     const [showBattleRoyale, setShowBattleRoyale] = useState(false);
+
+    // 通缉令玩法窗口
+    const [showWanted, setShowWanted] = useState(false);
+    const [wantedImmersive, setWantedImmersive] = useState(false); // 闯关中：iframe 全屏沉浸，隐藏弹窗标题栏
+    useEffect(() => {
+        const onMsg = (e: MessageEvent) => {
+            if (e.data && e.data.type === 'wanted-chase') {
+                setWantedImmersive(!!e.data.on);
+            }
+            if (e.data && e.data.type === 'wanted-close') {
+                setShowWanted(false);
+                setWantedImmersive(false);
+                window.dispatchEvent(new Event('modal-closed'));
+            }
+        };
+        window.addEventListener('message', onMsg);
+        return () => window.removeEventListener('message', onMsg);
+    }, []);
     
     // 结果弹窗状态
     const [showResultModal, setShowResultModal] = useState(false);
@@ -356,6 +374,11 @@ export default function WorldPage() {
                         // from=world：让 3D 页面知道是从岛里进来的，返回时回岛里
                         router.push('/typing-3d?from=world');
                     }, 100);
+                    break;
+                case 'wanted':
+                    // 通缉令 - 在大世界内以窗口形式打开玩法
+                    debugLog('[WorldPage] 打开通缉令窗口...');
+                    setShowWanted(true);
                     break;
             }
         };
@@ -724,8 +747,46 @@ export default function WorldPage() {
                 />
             )}
 
+            {/* 通缉令玩法窗口（大世界内悬浮窗；闯关中全屏沉浸铺满页面） */}
+            {showWanted && (
+                <div className={`fixed inset-0 z-[120] flex bg-slate-950/88 backdrop-blur-sm ${wantedImmersive ? 'items-stretch p-0' : 'items-center justify-center p-2 sm:p-4'}`}>
+                    <div className={`flex flex-col overflow-hidden bg-slate-900/92 ${wantedImmersive ? 'h-full w-full rounded-none border-0' : 'h-[94vh] w-full max-w-5xl rounded-[28px] border border-cyan-300/15 shadow-[0_24px_70px_rgba(2,6,23,0.52)]'}`}>
+                        {!wantedImmersive && (
+                            <div className="flex items-center justify-between border-b border-cyan-300/15 bg-gradient-to-r from-slate-950/95 via-[#172554] to-slate-950/95 px-4 py-2.5">
+                                <span className="flex items-center gap-2 text-sm font-bold tracking-widest text-cyan-200 sm:text-base">
+                                    <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-red-500" />
+                                    通缉令 · 悬赏公告
+                                </span>
+                                <button
+                                    onClick={() => { setShowWanted(false); setWantedImmersive(false); window.dispatchEvent(new Event('modal-closed')); }}
+                                    className="rounded-lg border border-cyan-300/25 bg-slate-800/70 px-3 py-1 text-sm font-bold text-cyan-100 hover:bg-slate-700/80"
+                                    aria-label="关闭通缉令窗口"
+                                >
+                                    关闭
+                                </button>
+                            </div>
+                        )}
+                        <iframe
+                            src="/wanted.html?v=27"
+                            title="通缉令玩法"
+                            className={`w-full border-0 bg-[#1a1b26] ${wantedImmersive ? 'h-full flex-1' : 'flex-1'}`}
+                        />
+                    </div>
+                </div>
+            )}
+
             {/* 底部备案信息 */}
             <Footer />
+
+            {/* 通缉令入口按钮 */}
+            <button
+                onClick={() => { setShowWanted(true); window.dispatchEvent(new Event('modal-opened')); }}
+                className="fixed right-3 top-16 z-[90] flex items-center gap-2 rounded-full border border-cyan-300/30 bg-slate-900/85 px-4 py-2.5 text-sm font-bold text-cyan-100 shadow-[0_8px_24px_rgba(2,6,23,0.5)] backdrop-blur-sm hover:border-cyan-300/60 hover:bg-slate-800/90 sm:text-base"
+                aria-label="打开通缉令玩法"
+            >
+                <span className="inline-block h-2.5 w-2.5 animate-pulse rounded-full bg-red-500" />
+                通缉令
+            </button>
         </div>
         </OrientationLock>
     );

@@ -31,12 +31,11 @@ export default function RegisterForm({ onSwitchToLogin }: RegisterFormProps) {
       return;
     }
 
-    // 邮箱规则要和后端保持一致：域名必须带顶级域（如 xxx.com）。
-    // HTML5 的 type="email" 允许 a@b 这种没有点的写法，后端会直接返回 422，
-    // 所以这里先在本地拦一道，给出能看懂的提示。
-    if (!/^[^\s@]+@[^\s@.]+(?:\.[^\s@.]+)+$/.test(trimmedEmail)) {
-      setLocalError('邮箱格式不正确，示例：name@example.com');
-      return;
+    // 邮箱是选填：填了就校验格式（域名必须带顶级域，如 xxx.com），
+    // 不填则交给后端生成占位邮箱，省得小朋友还要 parents 邮箱才能注册。
+    if (trimmedEmail && !/^[^\s@]+@[^\s@.]+(?:\.[^\s@.]+)+$/.test(trimmedEmail)) {
+        setLocalError('邮箱格式不正确，示例：name@example.com');
+        return;
     }
 
     if (password !== confirmPassword) {
@@ -50,7 +49,7 @@ export default function RegisterForm({ onSwitchToLogin }: RegisterFormProps) {
     }
 
     try {
-      await register(trimmedUsername, trimmedEmail, password);
+        await register(trimmedUsername, password, trimmedEmail || undefined);
     } catch {
       // store handles request errors
     }
@@ -114,8 +113,7 @@ export default function RegisterForm({ onSwitchToLogin }: RegisterFormProps) {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="w-full rounded-lg border-2 border-slate-600 bg-slate-700 px-4 py-3 text-white transition-colors focus:border-blue-400 focus:outline-none"
-              placeholder="输入邮箱"
-              required
+                placeholder="输入邮箱（选填）"
               disabled={isLoading}
             />
           </div>

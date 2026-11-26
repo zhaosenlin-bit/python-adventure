@@ -178,3 +178,37 @@ dist/AquaparkIO-win-x64.zip
 /tmp_*.py
 /fix_*_tmp.py
 /build-exe.log
+
+# 合并 / 验收过程中的临时草稿文件（不入库）
+/.qa_*
+
+# Local development artifacts (Windows local setup)
+backend/.venv/
+backend/seed_local_user.py
+frontend.log
+frontend.err.log
+npm-install.log
+run_output.txt
+
+backend/seed_local_content.py
+
+seedtest*.txt
+
+# Local runtime logs and verification artifacts
+*.log
+_be_log.txt
+_dev_*.txt
+_shots/
+public/_shots/
+public/_backup/
+public/dino/_backup/
+/art/villains/
+tmp_*.js
+test_wanted_*.js
+_wanted_*.js
+/test_*.js
+start-local.bat
+打开冒险岛.bat
+
+# 合并/验收时临时对比文件
+.qa_*

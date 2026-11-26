@@ -65,7 +65,7 @@ interface AuthState {
 
     // Actions
     login: (username: string, password: string) => Promise<void>;
-    register: (username: string, email: string, password: string) => Promise<void>;
+    register: (username: string, password: string, email?: string) => Promise<void>;
     logout: () => void;
     loadUserProfile: () => Promise<void>;
     clearError: () => void;
@@ -190,7 +190,7 @@ export const useAuthStore = create<AuthState>()(
                 }
             },
 
-            register: async (username: string, email: string, password: string) => {
+            register: async (username: string, password: string, email?: string) => {
                 debugLog('[AuthStore] Starting registration...', { username, email });
                 set({ isLoading: true, error: null });
                 try {
@@ -202,10 +202,11 @@ export const useAuthStore = create<AuthState>()(
                         headers: {
                             'Content-Type': 'application/json',
                         },
+                        // 邮箱可选：填了就带上，不填由后端生成占位邮箱。
                         body: JSON.stringify({
                             username,
-                            email,
                             password,
+                            ...(email ? { email } : {}),
                         }),
                     });
 

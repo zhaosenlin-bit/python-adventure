@@ -216,11 +216,29 @@ async function main() {
         check("展开按钮上的数字和菜单里的一致", (badge || "").includes(String(itemCount)), badge?.trim() || "");
         await page.screenshot({ path: path.join(OUT, "home-overflow-open.png") });
 
-        // 点菜单里的入口应该能跳转（用最后一个「3D 打字闯关」之类的站内链接）
-        const target = items.first();
-        await target.click();
-        await page.waitForTimeout(1200);
-        check("点展开菜单里的入口能跳转", page.url() !== "http://localhost:3000/", page.url());
+        // 点菜单里的入口应该能跳转。
+        // 这里不盲点第一项：外链入口是 window.open 另开标签页，当前地址不会变，
+        // 弹窗类入口（恐龙大世界）压根不改地址。优先挑一个站内路由的入口，
+        // 这样以后往顶栏加新入口也不会把这条验收搞挂。
+        const inAppEntryIds = [
+            "code-research-button-overflow",
+            "3d-typing-button-overflow",
+        ];
+        let target = null;
+        for (const id of inAppEntryIds) {
+            const candidate = page.locator(`[data-testid="${id}"]`);
+            if (await candidate.count()) {
+                target = candidate;
+                break;
+            }
+        }
+        if (target) {
+            await target.click();
+            await page.waitForTimeout(1200);
+            check("点展开菜单里的入口能跳转", page.url() !== "http://localhost:3000/", page.url());
+        } else {
+            console.log("  --  展开菜单里没有站内路由入口，跳过跳转检查");
+        }
     } else {
         check("展开菜单能打开", false, "没有出现「展开」按钮");
     }

@@ -4,6 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "dev:https": "next dev --experimental-https --experimental-https-key ./certs/key.pem --experimental-https-cert ./certs/cert.pem -p 3000",
+    "cert:local": "python gen-cert.py",
     "dev:lan": "next dev -H 0.0.0.0",
     "build": "node scripts/build.js",
     "start": "next start",
