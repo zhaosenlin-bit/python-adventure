@@ -120,7 +120,14 @@ async function main() {
         await page.setViewportSize({ width: viewport.width, height: viewport.height });
         await page.waitForTimeout(700);
 
-        const info = await page.evaluate(() => {
+        // 入口怎么分配是「测量 + ResizeObserver」异步算出来的，刚挂载那一刻读到的
+        // 还是旧值（横条 3 个 / 展开 5 个），布局稳下来之后才是真值（横条 6 个 / 展开 2 个）。
+        // 连采几次，等数字稳定下来再判。
+        let info = null;
+        let last = null;
+        let stableRuns = 0;
+        for (let attempt = 0; attempt < 40; attempt += 1) {
+            info = await page.evaluate(() => {
             const bar = document.querySelector("main > div.relative.z-30");
             if (!bar) return null;
             const overflowing = Array.from(bar.querySelectorAll("*"))
@@ -165,7 +172,20 @@ async function main() {
                 ).length,
                 mobileMenuItems: document.querySelectorAll('[data-testid$="-menu"]').length,
             };
-        });
+            });
+            // 要求连续三次读到同一个值才算稳定：只看两次的话，
+            // 会在「字体/余额还没加载完」的中间态上就收工。
+            if (last && info.rowButtons === last.rowButtons && info.badge === last.badge) {
+                stableRuns += 1;
+            } else {
+                stableRuns = 0;
+            }
+            if (stableRuns >= 3) {
+                break;
+            }
+            last = info;
+            await page.waitForTimeout(200);
+        }
 
         if (!info) {
             check(`${viewport.name} 顶栏能测量`, false, "找不到顶栏");
@@ -220,6 +240,8 @@ async function main() {
         // 这里不盲点第一项：外链入口是 window.open 另开标签页，当前地址不会变，
         // 弹窗类入口（恐龙大世界）压根不改地址。优先挑一个站内路由的入口，
         // 这样以后往顶栏加新入口也不会把这条验收搞挂。
+        // 先挑轻一点的站内路由：Code Research 首屏编译很快，
+        // 3D 打字闯关那套 three.js 页面在 dev 模式下要现编译，容易等超时。
         const inAppEntryIds = [
             "code-research-button-overflow",
             "3d-typing-button-overflow",
@@ -234,7 +256,11 @@ async function main() {
         }
         if (target) {
             await target.click();
-            await page.waitForTimeout(1200);
+            // dev 模式下第一次进新路由要现场编译，3D 那种重页面能等好几分钟，
+            // 20 秒不够用，给足时间再判定。
+            await page
+                .waitForURL((url) => url.pathname !== "/", { timeout: 120_000 })
+                .catch(() => {});
             check("点展开菜单里的入口能跳转", page.url() !== "http://localhost:3000/", page.url());
         } else {
             console.log("  --  展开菜单里没有站内路由入口，跳过跳转检查");
