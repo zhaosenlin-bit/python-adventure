@@ -69,7 +69,15 @@ async function main() {
 
     await page.goto(URL, { waitUntil: "domcontentloaded", timeout: 60_000 });
     await page.waitForFunction(() => Boolean(window.__worldPhaserGame), null, { timeout: 60_000 });
-    await page.waitForTimeout(2500);
+    // dev 模式 + 软渲染下，开放世界场景要十几秒才起得来，这里改成轮询等场景就绪
+    await page.waitForFunction(
+        () => {
+            const scene = window.__worldPhaserGame?.scene?.getScene("MainScene");
+            return Array.isArray(scene?.stations) && scene.stations.length > 0;
+        },
+        null,
+        { timeout: 60_000 },
+    );
 
     // 岛上应该多了一个「3D 打字闯关」站点
     const station = await page.evaluate(() => {
