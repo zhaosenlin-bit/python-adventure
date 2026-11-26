@@ -1,0 +1,26 @@
+这个文件夹 = 3D 迷宫板块的完整代码，与项目 feat/maze3d 分支内容完全一致，共 23 个文件。
+
+一、3D 迷宫本体（核心）
+  app/maze3d/page.tsx                 页面路由，访问 /maze3d
+  components/maze3d/                  界面与 3D 场景（主界面 / three.js 世界 / 小地图 / 小跟班造型）
+  lib/maze3d/                         游戏逻辑（迷宫生成 / 状态机 / Python 题库 / 主题材质 / 小弟AI）
+  __tests__/maze3d*.test.ts           自动化测试（31 个用例）
+  public/models/maze-wall.glb         墙体 3D 模型
+
+二、被 3D 迷宫直接引用的既有文件（缺了编译不过，必须一起带上）
+  components/maze/CodeEditor.tsx      代码输入框组件
+  lib/maze/interpreter.ts             Python 子集解释器
+  lib/maze/levels.ts                  解释器依赖的关卡定义
+  lib/maze/sound.ts                   音效
+
+三、接入改动（这 5 个是"修改"而非"新增"，用它们替换仓库里的同名文件）
+  app/page.tsx                        主页新增"迷宫探索 3D"入口按钮
+  app/globals.css                     新增 3 个动画
+  next.config.ts                      关闭编译圆标
+  package.json / package-lock.json    新增 three.js 依赖
+
+上传到 GitHub 的建议：
+- 最稳的方式仍然是执行推送命令（新分支 feat/maze3d，不覆盖远端任何已有内容）。
+- 如果手动上传：在 GitHub 仓库页面 → Add file → Upload files，把本文件夹里的内容
+  按"保留文件夹结构"的方式拖进去，并选择"commit to a new branch"，
+  千万不要直接提交到 main，避免覆盖远端现有文件。
