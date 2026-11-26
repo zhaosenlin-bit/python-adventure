@@ -212,3 +212,4 @@ start-local.bat
 
 # 合并/验收时临时对比文件
 .qa_*
+.qa-site/
