@@ -14,5 +14,5 @@
 模块可以在没有图形环境的机器上被单元测试直接导入。
 """
 
-__all__ = ["config", "fonts", "game", "level", "player", "questions", "ui"]
+__all__ = ["config", "fonts", "game", "level", "player", "questions", "records", "ui"]
 __version__ = "1.0.0"

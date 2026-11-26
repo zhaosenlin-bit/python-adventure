@@ -15,6 +15,7 @@ from ursina import Button, Entity, Text, camera, color
 
 from . import config
 from .fonts import T, current_font
+from .records import Record, best_of_day
 
 
 def _c(rgb, alpha: float = 1.0):
@@ -44,6 +45,7 @@ class UI:
         self.menu = self._build_menu()
         self.spawn = self._build_spawn_panel()
         self.result = self._build_result()
+        self.board = self._build_board()
 
         self.hide_all()
 
@@ -68,7 +70,15 @@ class UI:
         return button
 
     def hide_all(self) -> None:
-        for group in (self.hud, self.typing, self.toast, self.menu, self.spawn, self.result):
+        for group in (
+            self.hud,
+            self.typing,
+            self.toast,
+            self.menu,
+            self.spawn,
+            self.result,
+            self.board,
+        ):
             group.enabled = False
 
     # ------------------------------------------------------------------ HUD
@@ -254,12 +264,22 @@ class UI:
             color=_c((0.16, 0.55, 0.52)),
             parent=group,
         )
+        # 本机排行榜（战绩存在本机 JSON 存档里）
+        self.menu_board = self._button(
+            T("本机排行榜", "Local ranking"),
+            None,
+            scale=(0.3, 0.09),
+            x=0.0,
+            y=-0.10,
+            color=_c((0.20, 0.42, 0.38)),
+            parent=group,
+        )
         # 继续上一局
         self.menu_continue = self._button(
             T("继续闯关", "Continue quest"),
             None,
             scale=(0.3, 0.09),
-            x=-0.24,
+            x=-0.32,
             y=-0.10,
             color=_c((0.22, 0.30, 0.45)),
             parent=group,
@@ -270,7 +290,7 @@ class UI:
             T("退出游戏", "Quit"),
             None,
             scale=(0.3, 0.09),
-            x=0.24,
+            x=0.32,
             y=-0.10,
             color=_c((0.35, 0.22, 0.24)),
             parent=group,
@@ -372,7 +392,7 @@ class UI:
         group = Entity(parent=self.root)
 
         Entity(
-            model="quad", parent=group, scale=(0.7, 0.56), color=_c(config.UI_BACKGROUND), z=0.1
+            model="quad", parent=group, scale=(0.78, 0.62), color=_c(config.UI_BACKGROUND), z=0.1
         )
 
         self.result_title = self._text(
@@ -402,13 +422,102 @@ class UI:
 
         return group
 
-    def show_result(self, correct: int, total: int, seconds: float) -> None:
+    def show_result(
+        self,
+        correct: int,
+        total: int,
+        seconds: float,
+        eggs: int = 0,
+        records: Optional[list] = None,
+    ) -> None:
         accuracy = (correct / total * 100) if total else 0.0
-        self.result_stats.text = T(
-            f"正确 {correct} / {total} 题\n总用时 {seconds:.1f} 秒\n正确率 {accuracy:.0f}%",
-            f"Correct {correct} / {total}\nTotal time {seconds:.1f}s\nAccuracy {accuracy:.0f}%",
-        )
+        stats_cn = f"正确 {correct} / {total} 题\n总用时 {seconds:.1f} 秒\n正确率 {accuracy:.0f}%"
+        stats_en = f"Correct {correct} / {total}\nTotal time {seconds:.1f}s\nAccuracy {accuracy:.0f}%"
+        if eggs:
+            stats_cn += f"\n彩蛋 {eggs} 个"
+            stats_en += f"\nEggs {eggs}"
+        best = best_of_day(records or [])
+        if best is not None:
+            stats_cn += f"\n今日最佳 {best.accuracy:.0f}%（{best.correct}/{best.total}）"
+            stats_en += f"\nBest today {best.accuracy:.0f}% ({best.correct}/{best.total})"
+        self.result_stats.text = T(stats_cn, stats_en)
         self.result.enabled = True
 
     def hide_result(self) -> None:
         self.result.enabled = False
+
+    # ------------------------------------------------------------------ 排行榜
+
+    def _build_board(self) -> Entity:
+        group = Entity(parent=self.root)
+
+        Entity(
+            model="quad", parent=group, scale=(0.78, 0.62), color=_c(config.UI_BACKGROUND), z=0.1
+        )
+
+        self.board_title = self._text(
+            T("本机排行榜", "Local Leaderboard"),
+            origin=(0, 0),
+            y=0.24,
+            scale=2.0,
+            color=_c(config.UI_SUCCESS),
+            parent=group,
+        )
+        self.board_list = self._text(
+            "",
+            origin=(0, 0),
+            y=0.02,
+            scale=1.1,
+            color=_c(config.UI_TEXT),
+            parent=group,
+        )
+        self.board_back = self._button(
+            T("返回", "Back"),
+            None,
+            scale=(0.26, 0.09),
+            y=-0.24,
+            color=_c((0.22, 0.30, 0.45)),
+            parent=group,
+        )
+
+        return group
+
+    def show_board(self, records: Optional[list[Record]] = None) -> None:
+        """把本机战绩画出来（records 要已经排好序）。"""
+        rows = list(records or [])
+        lines_cn: list[str] = []
+        lines_en: list[str] = []
+
+        best = best_of_day(rows)
+        if best is None:
+            lines_cn.append("今天还没有成绩，先来一局吧")
+            lines_en.append("No run today yet - play one!")
+        else:
+            lines_cn.append(
+                f"今日最佳 {best.accuracy:.0f}%（{best.correct}/{best.total} · {best.seconds:.1f} 秒）"
+            )
+            lines_en.append(
+                f"Best today {best.accuracy:.0f}% ({best.correct}/{best.total} - {best.seconds:.1f}s)"
+            )
+
+        if rows:
+            lines_cn.append("")
+            lines_en.append("")
+            for index, record in enumerate(rows[:10], 1):
+                lines_cn.append(
+                    f"{index}. {record.accuracy:.0f}%  {record.correct}/{record.total}"
+                    f"  {record.seconds:.1f} 秒  彩蛋 {record.eggs}"
+                )
+                lines_en.append(
+                    f"{index}. {record.accuracy:.0f}%  {record.correct}/{record.total}"
+                    f"  {record.seconds:.1f}s  eggs {record.eggs}"
+                )
+        else:
+            lines_cn.append("还没有任何战绩")
+            lines_en.append("No records yet")
+
+        self.board_list.text = T("\n".join(lines_cn), "\n".join(lines_en))
+        self.board.enabled = True
+
+    def hide_board(self) -> None:
+        self.board.enabled = False

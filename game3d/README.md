@@ -89,6 +89,7 @@ python -m game3d.questions     # 打印当天的题量、难度分布、题目�
 | 阶段 | 操作 |
 | --- | --- |
 | 大厅 | 点击「3D 打字闯关」按钮 |
+| 排行榜 | 大厅里点「本机排行榜」看本机战绩（正确率 / 用时 / 彩蛋数），点「返回」回大厅 |
 | 选择出生点 | 点击地面上的发光光环，或按 `1` ~ `4`，再点「确认出发」 |
 | 探索 | `W` / `A` / `S` / `D` 移动，鼠标转视角，`V` 切换第一 / 第三人称，`Esc` 回大厅 |
 | 跑酷 | `空格` 跳跃（可以跳上跑酷塔），踩绿色弹跳板会被弹得更高 |
@@ -97,7 +98,7 @@ python -m game3d.questions     # 打印当天的题量、难度分布、题目�
 | 打字 | 直接敲键盘输入，**回车提交**，`退格` 删除，`Esc` 关闭窗口 |
 | 判定 | 答对 → 面板变绿 + 门缓缓打开；答错 → 输入框标红并提示「再试一次」 |
 | 下一关 | 走进打开的门即切换到下一关（关卡越来越复杂，玩法一致） |
-| 结算 | 打完当天最后一道题弹出「闯关完成」：正确数 / 总用时 / 正确率，「返回大厅」 |
+| 结算 | 打完当天最后一道题弹出「闯关完成」：正确数 / 总用时 / 正确率 / 彩蛋数，「返回大厅」 |
 
 ### 每日题库
 
@@ -105,6 +106,22 @@ python -m game3d.questions     # 打印当天的题量、难度分布、题目�
 * 内置 **210 个**英文单词 / 短句，分「简单 / 中等 / 困难」三档，当天题目**不重复**
 * 难度按关卡顺序由易到难
 * 顶部 HUD 常驻显示「第 N / M 题」
+
+### 本地存档与排行榜（桌面版）
+
+桌面版**不联网**，所以战绩直接写在本机的一个 JSON 文件里：
+
+| 场景 | 存档位置 |
+| --- | --- |
+| 开发态（`python -m game3d.main`） | 仓库根目录 `python-adventure/typing3d_records.json` |
+| 打包成 exe | exe 同目录 `typing3d_records.json`（玩家看得见，也能直接删掉重置） |
+
+* 存档文件名固定是 `typing3d_records.json`，内容是战绩数组，**删掉它就等于清空排行榜**
+* 每打完一局自动写入一次，最多保留 **50 条**（超出按排名截断）
+* 排序规则：**正确率高的在前；正确率一样时用时短的在前**
+* 每天题目按日期随机生成，**只有同一天的题目才完全可比**，所以排行榜顶部另外给一个「今日最佳」
+* 存档文件损坏（半截 JSON / 手改坏了）会自动当成「还没有战绩」，不会让游戏崩
+* 大厅里点「**本机排行榜**」就能看榜单，点「返回」回大厅
 
 ---
 
@@ -123,10 +140,12 @@ game3d/
 ├── game.py                # 主状态机：大厅 → 出生点 → 关卡 → 打字 → 结算
 ├── ui.py                  # 全部 2D 界面：大厅、HUD、打字窗口、出生点、结算页
 ├── questions.py           # 每日题库（纯 Python，不依赖 Ursina）
+├── records.py             # 本地战绩存档 + 排行榜（纯 Python，不依赖 Ursina）
 ├── requirements.txt       # ursina==7.0.0
 ├── tests/
 │   ├── test_questions.py  # 题库单元测试（纯逻辑，不需要显卡）
-│   └── test_eggs.py       # 彩蛋文案 / 跑酷塔布局单元测试（纯逻辑，不需要显卡）
+│   ├── test_eggs.py       # 彩蛋文案 / 跑酷塔布局单元测试（纯逻辑，不需要显卡）
+│   └── test_records.py    # 本地存档 / 排行榜单元测试（纯逻辑，不需要显卡）
 └── README.md              # 本文件
 ```
 
@@ -136,6 +155,10 @@ game3d/
 
 | 需求 | 对应代码 |
 | --- | --- |
+| 本地战绩存档 | `records.py::records_path()`：开发态在仓库根目录、打包后在 exe 同目录，文件名固定 `typing3d_records.json` |
+| 排行榜排序规则 | `records.py::rank()`：正确率降序 + 用时升序；`records.py::add_record()` 写盘并按 `MAX_RECORDS`（50 条）截断 |
+| 今日最佳 | `records.py::best_of_day()`：只比当天（`YYYYMMDD`）的成绩，因为只有同一天的题目才完全可比 |
+| 大厅「本机排行榜」按钮 | `ui.py::_build_menu()` 里的 `menu_board`；点击回调在 `game.py::_show_board()`，榜单面板由 `ui.py::_build_board()` / `show_board()` 绘制 |
 | 主界面按钮「3D 打字闯关」 | `ui.py::_build_menu()` 里的 `menu_button`；点击回调在 `game.py::Game.__init__` 绑定到 `_start_run()` |
 | 进入后先出现出生点选择界面 | `game.py::_goto_spawn()` → `_build_spawn_scene()`；界面在 `ui.py::_build_spawn_panel()` |
 | 3~4 个出生点（带名称 + 地面光环） | `config.py::SPAWN_POINTS`（4 个点，含名称和颜色）；光环 / 光柱 / 名字在 `game.py::_build_spawn_scene()` 里生成 |
@@ -151,7 +174,7 @@ game3d/
 | 打对 → 门发光并缓缓打开 | `game.py::_submit()` → `level.py::Level.open_door()`；动画在 `Level.update()` 里把门轴 `rotation_y` 从 0 平滑转到 −95°（1.8 秒），同时用 `lighting.set_light_color()` 点亮门灯 |
 | 打错 → 输入框标红 + 「再试一次」 | `game.py::_submit()` 的 else 分支 → `ui.py::show_typing(..., wrong=True)` |
 | 走进打开的门 → 下一关 | `game.py::_update_playing()` 判断 `level.distance_to_exit(...)`，触发 `_next_level()` → `_build_level()` |
-| 闯关完成结算页 | `game.py::_goto_result()` → `ui.py::show_result()`（正确数 / 总用时 / 正确率）+「返回大厅」按钮 |
+| 闯关完成结算页 | `game.py::_goto_result()` → `records.py::add_record(make_record(...))` 写入本机存档 → `ui.py::show_result()`（正确数 / 总用时 / 正确率 / 彩蛋数）+「返回大厅」按钮 |
 | 第一 / 第三人称镜头 | `player.py` 维护 `yaw / pitch`；`game.py::_update_camera()` 每帧摆位；`V` 键在 `_toggle_camera()` 里切换 |
 | 雾效 + 暖色灯光 | `game.py::_apply_fog()`（`scene.fog_density` + 背景色跟着雾色）+ `level.py::_build_environment()` 的暖色主光 / 面板暖光 |
 | 门打开是动画不是消失 | 门是真实实体，只旋转门轴 `Level.door_hinge.rotation_y`，全程可见 |
@@ -187,11 +210,15 @@ A：Ursina 需要 OpenGL 3.3+。可以先跑 `python -m game3d.questions` 验证
 **Q：一天只能玩一套题？**
 A：题目由日期种子决定，当天固定是设计如此（可重复练习）；第二天自动换新。
 
+**Q：排行榜怎么清空 / 战绩存在哪？**
+A：战绩存在本机 `typing3d_records.json`（开发态在仓库根目录，打包后在 exe 同目录），
+直接把这个文件删掉就能清空；文件损坏时游戏会自动当成「还没有战绩」，不会崩。
+
 ---
 
 ## 7. 测试
 
-题库逻辑是纯 Python，不需要显卡，可以直接跑：
+题库 / 存档逻辑都是纯 Python，不需要显卡，可以直接跑（当前 37 项）：
 
 ```powershell
 python -m pytest game3d/tests -q
@@ -202,6 +229,7 @@ python -m pytest game3d/tests -q
 ```powershell
 python game3d/tests/test_questions.py   # 题库（9 项）
 python game3d/tests/test_eggs.py        # 彩蛋文案 / 跑酷塔布局（15 项）
+python game3d/tests/test_records.py     # 本地存档 / 排行榜（13 项）
 ```
 
 ### 跑酷 / 彩蛋的实战验收（需要 ursina + 显示器）
@@ -211,6 +239,15 @@ python game3d/tests/test_eggs.py        # 彩蛋文案 / 跑酷塔布局（15 �
 
 ```powershell
 python scripts/qa_game3d_parkour.py
+```
+
+### 存档 / 排行榜的实战验收（需要 ursina + 显示器）
+
+这条脚本会开一个真实窗口，把「打完一局 → 写盘 → 排行榜重排 → 大厅打开榜单 → 存档损坏兜底」
+整条链路跑一遍（存档写在临时目录，不会污染仓库）：
+
+```powershell
+python scripts/qa_game3d_records.py
 ```
 
 ---

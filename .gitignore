@@ -213,3 +213,6 @@ start-local.bat
 # 合并/验收时临时对比文件
 .qa_*
 .qa-site/
+
+# 桌面版 3D 打字闯关的本机战绩存档（每台机器一份，不入库）
+typing3d_records.json

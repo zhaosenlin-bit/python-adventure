@@ -34,6 +34,7 @@ from .fonts import T, current_font
 from .level import Level
 from .player import PlayerController
 from .questions import Question, daily_questions, daily_seed
+from .records import add_record, load_records, make_record
 from .ui import UI
 
 STATE_MENU = "menu"
@@ -139,6 +140,8 @@ class Game(Entity):
         self.ui.spawn_confirm.on_click = self._confirm_spawn
         self.ui.spawn_back.on_click = self._goto_menu
         self.ui.result_back.on_click = self._goto_menu
+        self.ui.menu_board.on_click = self._show_board
+        self.ui.board_back.on_click = self._hide_board
 
         self._build_menu_scene()
         self._goto_menu()
@@ -564,7 +567,22 @@ class Game(Entity):
         self.state = STATE_RESULT
         self.run_active = False
         self.ui.hide_all()
-        self.ui.show_result(self.correct, len(self.questions), self.total_time)
+        # 桌面版没有服务器，战绩写进本机 JSON 存档（exe 同目录）
+        leaderboard = add_record(
+            make_record(
+                self.correct,
+                len(self.questions),
+                self.total_time,
+                len(self.collected_eggs),
+            )
+        )
+        self.ui.show_result(
+            self.correct,
+            len(self.questions),
+            self.total_time,
+            len(self.collected_eggs),
+            leaderboard,
+        )
         if self.player is not None:
             self.player.freeze()
             self.player.set_mouse_locked(False)
@@ -572,6 +590,16 @@ class Game(Entity):
 
     def _quit(self) -> None:
         application.quit()
+
+    def _show_board(self) -> None:
+        """本机排行榜：读本机存档，把战绩画出来。"""
+        self.state = STATE_MENU
+        self.ui.hide_all()
+        self.ui.show_board(load_records())
+
+    def _hide_board(self) -> None:
+        self.ui.hide_all()
+        self._goto_menu()
 
     # ------------------------------------------------------------------ 输入
 
