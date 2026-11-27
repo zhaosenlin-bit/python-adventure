@@ -19,7 +19,7 @@ import { Level } from "@/lib/levels";
 import { getLearningChapter, getLearningCopy, type LearningSubjectId } from "@/lib/learningHub";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { Trophy, LogOut, User, Volume2, VolumeX, Languages, Globe2, BrainCircuit, ExternalLink, Keyboard, Gamepad2, Mountain, Menu, Waves, ChevronDown, Footprints, X } from "lucide-react";
+import { Trophy, LogOut, User, Volume2, VolumeX, Languages, Globe2, BrainCircuit, ExternalLink, Keyboard, Gamepad2, Mountain, Menu, Waves, ChevronDown, X } from "lucide-react";
 import Footer from "@/components/Footer";
 import CoinBalance from "@/components/ui/CoinBalance";
 import CoinHistory from "@/components/ui/CoinHistory";
@@ -33,7 +33,6 @@ const AI_RESEARCH_URL = "https://research.google/ai-quests/intl/en_us/quest/mark
 const ENGLISH_GAME_URL = "https://www.gamestolearnenglish.com/";
 const MICROSTUDIO_GAME_URL = "https://microstudio.dev/";
 const TYPING_URL = process.env.NEXT_PUBLIC_TYPING_URL || "/typing/index.html";
-const DINO_GAME_URL = "/dino/index.html";
 
 /** 服务端渲染时没有 window，用 useEffect 兜底，避免 React 报警告。 */
 const useIsomorphicLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect;
@@ -49,7 +48,6 @@ export default function Home() {
     const [showCoinHistory, setShowCoinHistory] = useState(false);
     const [showNewUserGuide, setShowNewUserGuide] = useState(false);
     const [showQuickLinksMenu, setShowQuickLinksMenu] = useState(false);
-     const [showDinoGame, setShowDinoGame] = useState(false);
     // 一打开网站先停在登录界面，登录成功后再进首页
     const [loginGate, setLoginGate] = useState(true);
     const [mounted, setMounted] = useState(false);
@@ -223,22 +221,6 @@ export default function Home() {
         };
     }, [linksAreaEl]);
 
-    // 恐龙大世界弹窗：Esc 关闭
-    useEffect(() => {
-        if (!showDinoGame) return;
-
-        const handleEscape = (event: globalThis.KeyboardEvent) => {
-            if (event.key === 'Escape') {
-                setShowDinoGame(false);
-            }
-        };
-
-        document.addEventListener('keydown', handleEscape);
-        return () => {
-            document.removeEventListener('keydown', handleEscape);
-        };
-    }, [showDinoGame]);
-
     // 🔒 验证中显示加载状态
     if (!mounted || isValidating) {
         return (
@@ -351,20 +333,6 @@ export default function Home() {
         router.push('/aquapark');
     };
 
-    // 🦖 恐龙大世界：在首页全屏弹窗中打开游戏（iframe 同源，支持鼠标锁定）
-    const handleOpenDinoGame = () => {
-        musicManager.stop();
-        setShowDinoGame(true);
-    };
-
-    const handleCloseDinoGame = () => {
-        setShowDinoGame(false);
-        const { isMuted } = useSoundStore.getState();
-        if (!isMuted) {
-            musicManager.play();
-        }
-    };
-
      const topQuickLinks = [
         {
             id: 'typing',
@@ -435,16 +403,6 @@ export default function Home() {
             iconClassName: 'text-sky-300',
             buttonClassName: 'top-action-microstudio border-sky-300/35 bg-sky-500/12 text-sky-100 shadow-sky-500/10',
             onClick: handleOpenMicrostudioGame,
-        },
-        {
-            id: 'dino-game',
-            testId: 'dino-game-button',
-            label: '恐龙大世界',
-            title: '进入恐龙大世界 · 黑爪偷猎队',
-            Icon: Footprints,
-            iconClassName: 'text-emerald-300',
-            buttonClassName: 'top-action-dino border-emerald-300/35 bg-emerald-500/12 text-emerald-100 shadow-emerald-500/10',
-            onClick: handleOpenDinoGame,
         },
     ] as const;
 
@@ -697,30 +655,6 @@ export default function Home() {
                         </div>
                     </button>
 
-                    {/* 🦖 恐龙大世界 - 3D 开放世界探索游戏入口 */}
-                    <div className="relative mb-4 sm:mb-8 overflow-hidden rounded-2xl border border-emerald-400/25 bg-gradient-to-r from-[#0d1a10] via-[#10241a] to-[#0a0e27] p-5 sm:p-6 shadow-[0_18px_50px_rgba(8,15,30,0.4)]">
-                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                            <div className="flex items-center gap-4">
-                                <span className="flex h-12 w-12 items-center justify-center rounded-2xl border border-emerald-300/30 bg-emerald-400/10 text-emerald-200">
-                                    <Gamepad2 className="h-6 w-6" />
-                                </span>
-                                <div>
-                                    <h2 className="text-xl sm:text-2xl font-pixel text-emerald-200">恐龙大世界 · 黑爪偷猎队</h2>
-                                    <p className="text-xs sm:text-sm text-slate-300 mt-1">3D 开放世界：救回被偷猎队装箱的 12 枚恐龙蛋，找齐爷爷的 6 页追捕笔记，用麻醉枪把 6 名偷猎者赶出山谷——小心霸王龙。</p>
-                                </div>
-                            </div>
-                            <button
-                                type="button"
-                                data-testid="dino-game-entry-button"
-                                onClick={handleOpenDinoGame}
-                                className="inline-flex min-h-[44px] items-center gap-2 rounded-full border border-emerald-300/40 bg-emerald-400/15 px-5 py-2.5 text-emerald-100 shadow-lg shadow-emerald-900/20 transition-all duration-200 ease-out hover:-translate-y-0.5 hover:scale-[1.02] hover:bg-emerald-400/25 hover:text-white active:translate-y-0 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300/70"
-                            >
-                                <Gamepad2 className="h-4 w-4" />
-                                <span className="text-sm font-semibold">开始探索</span>
-                            </button>
-                        </div>
-                    </div>
-
                     {!selectedSubject ? (
                         <SubjectSelect
                             userLevel={userLevel}
@@ -820,34 +754,6 @@ export default function Home() {
             )}
 
             {/* 底部备案信息 */}
-            {/* 🦖 恐龙大世界全屏弹窗 */}
-            {showDinoGame && (
-                <div className="fixed inset-0 z-[100] flex flex-col bg-[#0a0e27]">
-                    <div className="flex items-center justify-between gap-3 border-b border-emerald-400/20 bg-[#0a0e27]/95 px-4 py-2.5">
-                        <div className="flex items-center gap-2 text-sm text-emerald-100">
-                            <Gamepad2 className="h-4 w-4 text-emerald-300" />
-                            <span className="font-pixel">恐龙大世界 · 黑爪偷猎队</span>
-                            <span className="hidden sm:inline text-xs text-slate-400">WASD 移动 · 鼠标视角 · 左键麻醉枪 · Shift 冲刺 · 击败 6 名偷猎者</span>
-                        </div>
-                        <button
-                            type="button"
-                            data-testid="dino-game-close-button"
-                            onClick={handleCloseDinoGame}
-                            className="inline-flex min-h-[40px] items-center gap-2 rounded-full border border-white/15 bg-white/5 px-4 py-1.5 text-sm text-slate-200 transition-colors hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300/70"
-                        >
-                            <X className="h-4 w-4" />
-                            返回冒险岛
-                        </button>
-                    </div>
-                    <iframe
-                        src={DINO_GAME_URL + "?v=11"}
-                        title="恐龙大世界 · 黑爪偷猎队"
-                        allow="pointer-lock; fullscreen; autoplay"
-                        className="h-full w-full flex-1 border-0 bg-[#0D0E13]"
-                    />
-                </div>
-            )}
-
             <Footer />
         </main>
     );

@@ -30,5 +30,5 @@
     ".next/dev/types/**/*.ts",
     "**/*.mts"
   ],
-  "exclude": ["node_modules", "kenney_pico-8-city"]
+  "exclude": ["node_modules", "kenney_pico-8-city", "3D迷宫板块"]
 }

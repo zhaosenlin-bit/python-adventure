@@ -3,6 +3,9 @@ const testIgnorePatterns = [
   '/node_modules/',
   '/_archive_20260128/',
   '/scripts/',
+  // 「3D迷宫板块」是独立项目的交付拷贝（自带 package.json），
+  // 里面的 @/ 路径是相对它自己那层的，根工程的 jest 跑不了。
+  '/3D迷宫板块/',
 ];
 
 const moduleIgnorePatterns = [
